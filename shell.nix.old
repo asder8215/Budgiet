@@ -1,0 +1,23 @@
+{ ... }:
+let
+  nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-25.11";
+  pkgs = import nixpkgs { config.allowUnfree = true; };
+in pkgs.mkShell rec {
+  allowUnfree = true;
+
+  packages = with pkgs; [
+    
+  ];
+  buildInputs = with pkgs; [
+    cargo rustc clang llvmPackages_latest.bintools
+    flutter
+    android-tools sdkmanager
+  ];
+
+  shellHook = let
+    rustc_channel = "stable";
+  in ''
+    export PATH=$PATH:''${CARGO_HOME:-~/.cargo}/bin
+    export PATH=$PATH:''${RUSTUP_HOME:-~/.rustup}/toolchains/${rustc_channel}-x86_64-unknown-linux-gnu/bin/
+  '';
+}

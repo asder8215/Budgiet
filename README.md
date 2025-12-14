@@ -24,6 +24,17 @@ A budget tracking app written in Flutter and Rust.
       sudo dnf install zlib ncurses-libs bzip2-libs -y
       ```
     </details>
+    <details>
+      <summary>NixOS</summary>
+
+      On NixOs you just need to import the config in [`flutter.nix`](./flutter.nix).
+      You can copy the file to `/etc/nixos` and import it from `configuration.nix` by adding it to the **imports** list:
+      ```nix
+        imports = [
+          ./flutter.nix
+        ];
+      ```
+    </details>
 
 2. Install Flutter:
     > If you are using **VS Code/Codium**, you can skip this step and simply install the [Flutter extension](https://marketplace.visualstudio.com/items?itemName=Dart-Code.flutter).
@@ -50,7 +61,7 @@ A budget tracking app written in Flutter and Rust.
     mv ~/Android/Sdk/cmdline-tools/cmdline-tools ~/Android/Sdk/cmdline-tools/latest
     rm android-cmd-tools.zip
     # Install Android runtimes
-    ~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36" "build-tools;36.1.0" "platform-tools" "emulator"
+    ~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36" "build-tools;36.1.0" "platform-tools" "emulator" "system-images;android-35;google_apis_playstore;x86_64"
     ```
     > If you have **Android Studio**, you can set up a *device or emulator* to run the code by following [these steps](https://docs.flutter.dev/platform-integration/android/setup#set-up-devices) in the flutter doc.
     > Otherwise, you will have to set up an emulator with [these steps](https://github.com/maiz-an/AVD-Setup-without-Andriod-Studio#3-install-system-images-and-create-an-avd).
