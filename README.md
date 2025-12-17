@@ -12,7 +12,9 @@ A budget tracking app written in Flutter and Rust.
       sudo apt-get update -y && sudo apt-get upgrade -y
       sudo apt-get install curl git unzip xz-utils zip libglu1-mesa -y
       # If running Android Studio
-      sudo apt-get install libc6 libncurses5 libstdc++6 lib32z1 libbz2-1.0
+      sudo apt-get install libc6 libncurses5 libstdc++6 lib32z1 libbz2-1.0 -y
+      # If building for Linux
+      sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev -y
       ```
     </details>
     <details>
@@ -22,6 +24,8 @@ A budget tracking app written in Flutter and Rust.
       sudo dnf install curl git unzip xz zip mesa-libGLU -y
       # If running Android Studio
       sudo dnf install zlib ncurses-libs bzip2-libs -y
+      # If building for Linux
+      sudo dnf install clang cmake ninja-build pkg-config gtk3-devel -y
       ```
     </details>
     <details>
@@ -52,7 +56,47 @@ A budget tracking app written in Flutter and Rust.
     source ~/.profile
     ```
 
-3. Install **Android** runtime:
+3. Install **Android Studio**:
+    ```sh
+    # Android Studio
+    prev_dir=$(pwd); cd $(mktemp -d)
+    install_dir="/opt"
+    read -p "Enter download link to Android studio from https://developer.android.com/studio:" url
+    wget --output-document android-studio.tar.gz "$url"
+    tar -xf android-studio.tar.gz
+    sudo mv ./android-studio "$install_dir"
+    sudo sh -c 'echo "[Desktop Entry]
+    Name=Android Studio
+    Comment=Integerated Development Environment for Android
+    Exec="/opt/android-studio/bin/studio"
+    Icon=/opt/android-studio/bin/studio.svg
+    Terminal=false
+    Type=Application
+    StartupWMClass=jetbrains-studio
+    Categories=Development;IDE" > /usr/local/share/applications/android-studio.desktop'
+    cd "$prev_dir"
+    ```
+
+    * You might also need to manually enable virtualization.
+      Try running an emulator, and if it doesn't work, run this:
+      <details>
+        <summary>Ubuntu/Debian</summary>
+
+        TODO: Enable virtualization in ubuntu
+      </details>
+      <details>
+        <summary>Fedora</summary>
+        
+        ```sh
+        sudo dnf group install --with-optional virtualization -y
+        sudo systemctl enable libvirtd
+        if [[ ! $(lsmod | grep kvm) ]]; then
+          printf "\033[0;WARNING: KVM for Android Studio was NOT setup correctly. Check if your hardware supports KVM.\033[0m\n" >&2
+        fi
+        ```
+      </details>
+
+4. Install **Android** runtime:
     ```sh
     # Install Android commandline tools
     curl "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" -o android-cmd-tools.zip
@@ -63,13 +107,14 @@ A budget tracking app written in Flutter and Rust.
     # Install Android runtimes
     ~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36" "build-tools;36.1.0" "platform-tools" "emulator" "system-images;android-35;google_apis_playstore;x86_64"
     ```
-    > If you have **Android Studio**, you can set up a *device or emulator* to run the code by following [these steps](https://docs.flutter.dev/platform-integration/android/setup#set-up-devices) in the flutter doc.
+    > You can set up a *device or emulator* to run the code with **Android Studio** by following [these steps](https://docs.flutter.dev/platform-integration/android/setup#set-up-devices) in the flutter doc.
+    > The *VS Code* extension might also give you the option to create an emulator in `>Flutter: Select Device`, but this doesn't always show up.
     > Otherwise, you will have to set up an emulator with [these steps](https://github.com/maiz-an/AVD-Setup-without-Andriod-Studio#3-install-system-images-and-create-an-avd).
 
-4. Install **IOS** runtime (**Mac Only**):
+5. Install **IOS** runtime (**Mac Only**):
     TODO:
 
-5. Finally, agree to licenses and do validation:
+6. Finally, agree to licenses and do validation:
     ```sh
     flutter doctor --android-licenses
     flutter emulators && flutter devices
