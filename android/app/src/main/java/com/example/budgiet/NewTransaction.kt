@@ -95,11 +95,13 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
         }
         FormField("Location") {
             OutlinedButton(onClick = { showLocationPicker = true }) {
-                Text(if (selectedLocation != null) {
-                    selectedLocation!!.name
-                } else {
-                    "Select Location"
-                })
+                Text(
+                    if (selectedLocation != null) {
+                        selectedLocation!!.name
+                    } else {
+                        "Select Location"
+                    }
+                )
             }
             PlainToolTipBox("Auto-select Location") {
                 FilledIconButton(onClick = { TODO() }) {
@@ -123,9 +125,9 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                     }
                 },
                 value = selectedPrice,
-                modifier = Modifier.widthIn(max=150.dp),
+                modifier = Modifier.widthIn(max = 150.dp),
                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
-                keyboardOptions = KeyboardOptions.Default.copy (
+                keyboardOptions = KeyboardOptions.Default.copy(
                     keyboardType = KeyboardType.Number
                 ),
                 // TODO: Add Icon decoration for the price (like $ USD)
@@ -146,22 +148,26 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
-            confirmButton = { TextButton(
-                onClick = {
-                    showDatePicker = false
-                    // FIXME: DatePicker is providing incorrect dates
-                    datePickerState.selectedDateMillis?.let {
-                        selectedDate = Date(it)
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDatePicker = false
+                        // FIXME: DatePicker is providing incorrect dates
+                        datePickerState.selectedDateMillis?.let {
+                            selectedDate = Date(it)
+                        }
                     }
+                ) {
+                    Text("Ok")
                 }
-            ) {
-                Text("Ok")
-            } },
-            dismissButton = { TextButton(
-                onClick = { showDatePicker = false }
-            ) {
-                Text("Cancel")
-            } },
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDatePicker = false }
+                ) {
+                    Text("Cancel")
+                }
+            },
         ) {
             DatePicker(
                 state = datePickerState,
@@ -247,7 +253,8 @@ fun LocationPickerDialog(
                 if (searchState.text.isEmpty()) {
                     Text(
                         "Recent",
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
                             .padding(start = dialogPadding)
                     )
                 } else {
@@ -273,6 +280,7 @@ fun LocationPickerDialog(
                         supportingContent = { Text(location.address) },
                     )
                 }
+
                 @Composable
                 fun LoadingItem(modifier: Modifier = Modifier) {
                     Box(
@@ -281,20 +289,23 @@ fun LocationPickerDialog(
                         ListItem(
                             modifier = modifier
                                 .clip(RoundedCornerShape(4.dp)),
-                            headlineContent = {  }
+                            headlineContent = { }
                         )
                         CircularProgressIndicator()
                     }
                 }
 
-                val searchPager = remember { Pager(
-                    config = PagingConfig(pageSize = searchPageSize.toInt())
-                ) { searchLocations(searchState.text) } }
+                val searchPager = remember {
+                    Pager(
+                        config = PagingConfig(pageSize = searchPageSize.toInt())
+                    ) { searchLocations(searchState.text) }
+                }
                 val pagedItems = searchPager.flow.collectAsLazyPagingItems()
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(dividerThickness),
-                    modifier = Modifier.clip(RoundedCornerShape(16.dp))
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
                         // List's height is enough to show only 3.5 items (+ their dividers).
                         // TODO: use clamp
                         .heightIn(max = itemHeight * 3.5f + dividerThickness * 3),
@@ -302,13 +313,15 @@ fun LocationPickerDialog(
                     // Show search results if the SearchBar has a query,
                     // otherwise show recent locations
                     if (searchState.text.isEmpty()) {
-                        items(getRecentLocations(),
+                        items(
+                            getRecentLocations(),
                             key = { location -> location.id }
                         ) { location ->
                             LocationItem(location)
                         }
                     } else {
-                        items(pagedItems.itemCount,
+                        items(
+                            pagedItems.itemCount,
                             key = pagedItems.itemKey { location -> location.id }
                         ) { index ->
                             pagedItems[index]?.let { location ->
@@ -321,7 +334,8 @@ fun LocationPickerDialog(
                 }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .padding(top = dialogPadding / 2),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
