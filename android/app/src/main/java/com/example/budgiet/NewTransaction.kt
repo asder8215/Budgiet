@@ -51,11 +51,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.paging.LoadState
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.example.budgiet.ui.theme.BudgietTheme
+import kotlin.math.ceil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,13 +183,22 @@ fun LocationPickerDialog(
     val textIconButtonPadding = 12.dp
     val textIconButtonSpacing = 4.dp
     val dividerThickness = DividerDefaults.Thickness
-    val searchPageSize = 10u
+    // How many items should fit in the LazyColumn Widget (in terms of a list item's height)
+    val searchColumnSize = 3.5
+    // Page size should have enough items to scroll down several times the number of items showed.
+    val searchPageSize = ceil(searchColumnSize).toInt() * 3
     val searchState = rememberTextFieldState()
 
-    val searchSource = remember { searchLocations(searchState.text) }
     val searchPager = remember { Pager(
-        config = PagingConfig(pageSize = searchPageSize.toInt())
-    ) { searchSource } }
+        config = PagingConfig(
+            pageSize = searchPageSize,
+            initialLoadSize = searchPageSize,
+            // Must be > pageSize * 3, let's make it 4 pages.
+            maxSize = searchPageSize * 4,
+            // Don't let the pager return a bunch of unloaded items, we are going to show a single unloaded item at a time.
+            enablePlaceholders = false,
+        )
+    ) { searchLocations(searchState.text) } }
     val pagedItems = searchPager.flow.collectAsLazyPagingItems()
 
     Dialog(
@@ -205,10 +216,8 @@ fun LocationPickerDialog(
                 modifier = Modifier.padding(all = dialogPadding)
                 // TODO: Animate height
             ) {
-                PlainSearchBar(
-                    state = searchState,
-                    onQueryChange = { searchSource.invalidate() }
-                )
+                // TODO: How to update the PagingSource??
+                PlainSearchBar(state = searchState)
 
                 // Show search results if the SearchBar has a query,
                 // otherwise show recent locations.
@@ -257,7 +266,7 @@ fun LocationPickerDialog(
                     modifier = Modifier.clip(RoundedCornerShape(16.dp))
                         // List's height is enough to show only 3.5 items (+ their dividers).
                         // TODO: use clamp
-                        .heightIn(max = itemHeight * 3.5f + dividerThickness * 3),
+                        .heightIn(max = itemHeight * searchColumnSize.toFloat() + dividerThickness * 3),
                 ) {
                     // Show search results if the SearchBar has a query,
                     // otherwise show recent locations
@@ -274,8 +283,14 @@ fun LocationPickerDialog(
                             pagedItems[index]?.let { location ->
                                 LocationItem(location)
                             } ?: run {
+                                // This will never be null as long as enablePlaceholders = false in the Pager.
+                                // Leave it here tho, in case we change it to true and forget about it.
                                 LoadingItem()
                             }
+                        }
+
+                        if (pagedItems.loadState.append == LoadState.Loading) {
+                            item { LoadingItem() }
                         }
                     }
                 }

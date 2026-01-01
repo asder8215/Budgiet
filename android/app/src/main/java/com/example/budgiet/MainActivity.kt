@@ -141,9 +141,10 @@ class SearchListSource(query: CharSequence) : PagingSource<UInt, Location>() {
         return LoadResult.Page(
             data = data,
             // This will be the startKey of the next load() if it's going backwards
+            // FIXME: should return null instead of 0
             prevKey = ensureValidKey(start.toInt() - data.size),
             // Next start key is the next index in the search list
-            nextKey = data.size.toUInt(),
+            nextKey = start + data.size.toUInt(),
         )
     }
 

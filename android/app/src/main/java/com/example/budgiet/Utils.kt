@@ -48,7 +48,6 @@ fun PlainSearchBar(
     modifier: Modifier = Modifier,
 //    expandable: Boolean = false,
     state: TextFieldState,
-    onQueryChange: (CharSequence) -> Unit,
 ) {
 //    var expanded by remember { mutableStateOf(false) }
 //    val onExpandedChange = { new: Boolean ->
@@ -65,10 +64,7 @@ fun PlainSearchBar(
         inputField = {
             SearchBarDefaults.InputField(
                 query = state.text.toString(),
-                onQueryChange = {
-                    state.edit { replace(0, length, it) }
-                    onQueryChange(state.text)
-                },
+                onQueryChange = { state.edit { replace(0, length, it) } },
                 onSearch = { },
                 expanded = false,
                 onExpandedChange = { },
