@@ -112,16 +112,7 @@ class ListSource(
             .filter { location -> location.name.startsWith(query) }
 
         // TODO: how to pass search query to LoadParams?
-        return LoadResult.Page(
-            data = data,
-            // This will be the startKey of the next load() if it's going backwards
-            prevKey = if (val key = start.toInt() - data.size >= 0) {
-                key
-            } else {
-                null
-            },
-            nextKey = data.size + 1,
-        )
+        return TODO()
     }
 
     override fun getRefreshKey(state: PagingState<UInt, Location>): UInt? {
