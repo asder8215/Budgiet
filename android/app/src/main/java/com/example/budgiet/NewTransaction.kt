@@ -109,8 +109,8 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                 onClick = {
                     showDatePicker = false
                     // FIXME: DatePicker is providing incorrect dates
-                    datePickerState.selectedDateMillis?.let {
-                        selectedDate = Date(it)
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Date(millis)
                     }
                 }
             ) {
@@ -180,8 +180,15 @@ fun LocationPickerDialog(
     val dialogPadding = 8.dp
     val textIconButtonPadding = 12.dp
     val textIconButtonSpacing = 4.dp
+    val dividerThickness = DividerDefaults.Thickness
     val searchPageSize = 10u
     val searchState = rememberTextFieldState()
+
+    val searchSource = remember { searchLocations(searchState.text) }
+    val searchPager = remember { Pager(
+        config = PagingConfig(pageSize = searchPageSize.toInt())
+    ) { searchSource } }
+    val pagedItems = searchPager.flow.collectAsLazyPagingItems()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -198,7 +205,10 @@ fun LocationPickerDialog(
                 modifier = Modifier.padding(all = dialogPadding)
                 // TODO: Animate height
             ) {
-                PlainSearchBar(state = searchState)
+                PlainSearchBar(
+                    state = searchState,
+                    onQueryChange = { searchSource.invalidate() }
+                )
 
                 // Show search results if the SearchBar has a query,
                 // otherwise show recent locations.
@@ -212,7 +222,6 @@ fun LocationPickerDialog(
                     Spacer(Modifier.height(dialogPadding))
                 }
 
-                val dividerThickness = DividerDefaults.Thickness
                 val localDensity = LocalDensity.current
                 // Get the height of the first item in the list to determine the size of the whole List widget.
                 // Give it a default in case the item's height could not be obtained.
@@ -233,9 +242,7 @@ fun LocationPickerDialog(
                 }
                 @Composable
                 fun LoadingItem(modifier: Modifier = Modifier) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         ListItem(
                             modifier = modifier
                                 .clip(RoundedCornerShape(4.dp)),
@@ -244,11 +251,6 @@ fun LocationPickerDialog(
                         CircularProgressIndicator()
                     }
                 }
-
-                val searchPager = remember { Pager(
-                    config = PagingConfig(pageSize = searchPageSize.toInt())
-                ) { searchLocations(searchState.text) } }
-                val pagedItems = searchPager.flow.collectAsLazyPagingItems()
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(dividerThickness),
@@ -261,13 +263,13 @@ fun LocationPickerDialog(
                     // otherwise show recent locations
                     if (searchState.text.isEmpty()) {
                         items(getRecentLocations(),
-                            key = { location -> location.id }
+                            key = { location -> location.id.toInt() } // Why can't use UInt ....
                         ) { location ->
                             LocationItem(location)
                         }
                     } else {
                         items(pagedItems.itemCount,
-                            key = pagedItems.itemKey { location -> location.id }
+                            key = pagedItems.itemKey { location -> location.id.toInt() }
                         ) { index ->
                             pagedItems[index]?.let { location ->
                                 LocationItem(location)
