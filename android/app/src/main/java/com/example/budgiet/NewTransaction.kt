@@ -52,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.paging.LoadState
-import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
@@ -190,8 +189,8 @@ fun LocationPickerDialog(
     val searchState = rememberTextFieldState()
 
     val searchPager = rememberListPager(
-        query = searchState.text,
-        getPage = { query, start, size -> getLocationsSearchPage(query, start, size) },
+        searchState = searchState,
+        getPage = { query, start, len -> getLocationsSearchPage(query, start, len) },
         config = PagingConfig(
             pageSize = searchPageSize,
             initialLoadSize = searchPageSize,

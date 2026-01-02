@@ -29,10 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.paging.PagingSource
-import androidx.paging.PagingState
 import com.example.budgiet.ui.theme.BudgietTheme
-import kotlin.math.max
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,9 +86,9 @@ class Location(
     val name: String,
     val address: String,
 )
-fun getRecentLocations(start: UInt = 0u, length: UInt = 10u): List<Location> {
+fun getRecentLocations(start: UInt = 0u, len: UInt = 10u): List<Location> {
     // Returns a list of bogus locations for now
-    return List(length.toInt()) { i ->
+    return List(len.toInt()) { i ->
         val id = i.toUInt() + start
         if (id % 2u == 0u) {
             Location(id = id, name = "Chipotle", "$id$id$id Main Street, Bronx NY")
@@ -100,12 +97,18 @@ fun getRecentLocations(start: UInt = 0u, length: UInt = 10u): List<Location> {
         }
     }
 }
-fun getLocationsSearchPage(
-    query: CharSequence,
-    start: PagingKey,
-    size: UInt,
-): List<Location> = getRecentLocations(start, size)
-    .filter { location -> location.name.startsWith(query) }
+fun getLocationsSearchPage(query: CharSequence, start: PagingKey, len: UInt): List<Location> {
+    // Returns a list of bogus locations for now
+    return List(len.toInt()) { i ->
+        val id = i.toUInt() + start
+        if (id % 2u == 0u) {
+            Location(id = id, name = query.toString(), "$id$id$id Main Street, Bronx NY")
+        } else {
+            Location(id = id, name = query.toString(), "$id$id$id IsNuts Lane, Los Angeles CA")
+        }
+    }
+}
+
 
 @Preview(showBackground = true)
 @Composable
