@@ -189,7 +189,9 @@ fun LocationPickerDialog(
     val searchPageSize = ceil(searchColumnSize).toInt() * 3
     val searchState = rememberTextFieldState()
 
-    val searchPager = remember { Pager(
+    val searchPager = rememberListPager(
+        query = searchState.text,
+        getPage = { query, start, size -> getLocationsSearchPage(query, start, size) },
         config = PagingConfig(
             pageSize = searchPageSize,
             initialLoadSize = searchPageSize,
@@ -198,7 +200,7 @@ fun LocationPickerDialog(
             // Don't let the pager return a bunch of unloaded items, we are going to show a single unloaded item at a time.
             enablePlaceholders = false,
         )
-    ) { searchLocations(searchState.text) } }
+    )
     val pagedItems = searchPager.flow.collectAsLazyPagingItems()
 
     Dialog(
@@ -217,7 +219,13 @@ fun LocationPickerDialog(
                 // TODO: Animate height
             ) {
                 // TODO: How to update the PagingSource??
-                PlainSearchBar(state = searchState)
+                PlainSearchBar(
+                    onQueryChange = {
+                        pagedItems.refresh()
+                        println("Query = ${searchState.text}")
+                    },
+                    state = searchState,
+                )
 
                 // Show search results if the SearchBar has a query,
                 // otherwise show recent locations.

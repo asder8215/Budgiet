@@ -2,6 +2,7 @@ package com.example.budgiet
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -47,7 +48,8 @@ fun PlainToolTipBox(
 fun PlainSearchBar(
     modifier: Modifier = Modifier,
 //    expandable: Boolean = false,
-    state: TextFieldState,
+    onQueryChange: (CharSequence) -> Unit,
+    state: TextFieldState = rememberTextFieldState(),
 ) {
 //    var expanded by remember { mutableStateOf(false) }
 //    val onExpandedChange = { new: Boolean ->
@@ -64,7 +66,10 @@ fun PlainSearchBar(
         inputField = {
             SearchBarDefaults.InputField(
                 query = state.text.toString(),
-                onQueryChange = { state.edit { replace(0, length, it) } },
+                onQueryChange = {
+                    state.edit { replace(0, length, it) }
+                    onQueryChange(state.text)
+                },
                 onSearch = { },
                 expanded = false,
                 onExpandedChange = { },
