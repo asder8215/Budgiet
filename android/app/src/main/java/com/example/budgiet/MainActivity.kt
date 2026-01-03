@@ -97,7 +97,7 @@ fun getRecentLocations(start: UInt = 0u, len: UInt = 10u): List<Location> {
         }
     }
 }
-fun getLocationsSearchPage(query: CharSequence, start: PagingKey, len: UInt): List<Location> {
+fun getLocationsSearchPage(query: CharSequence, start: UInt, len: UInt): List<Location> {
     // Returns a list of bogus locations for now
     return List(len.toInt()) { i ->
         val id = i.toUInt() + start
