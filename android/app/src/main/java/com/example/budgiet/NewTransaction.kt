@@ -127,6 +127,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                 },
                 value = selectedPrice,
                 modifier = Modifier
+                    // fixme: use clamping than max for width
                     .widthIn(max = 150.dp)
                     .testTag("price_input_field"),
                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
@@ -138,17 +139,18 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                     Text(
                         "0",
                         textAlign = TextAlign.End,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth(),
                         color = androidx.compose.ui.graphics.Color(Color.GRAY)
                     )
+                },
+                supportingText = {
+                    if (parseError) {
+                        val errorMsg = "$selectedPrice is not a valid price value"
+                        Text(errorMsg)
+                    }
                 }
                 // TODO: Add Icon decoration for the price (like $ USD)
-//                leadingIcon = {
-//                    Row() {
-//                        Icon(Icons.Filled.Build, "USD")
-//                        Text("USD", fontSize = 4.em)
-//                    }
-//                }
             )
         }
     }
