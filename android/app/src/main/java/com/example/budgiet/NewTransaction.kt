@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Button
@@ -149,8 +150,10 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                         val errorMsg = "$selectedPrice is not a valid price value"
                         Text(errorMsg)
                     }
-                }
-                // TODO: Add Icon decoration for the price (like $ USD)
+                },
+                leadingIcon = {
+                    Icon(Icons.Filled.AttachMoney, "Currency")
+                },
             )
         }
     }
