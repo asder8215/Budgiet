@@ -2,6 +2,7 @@ package com.example.budgiet
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -19,14 +20,15 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +53,8 @@ fun PlainToolTipBox(
 fun PlainSearchBar(
     modifier: Modifier = Modifier,
 //    expandable: Boolean = false,
-    state: TextFieldState,
+    onQueryChange: (CharSequence) -> Unit,
+    state: TextFieldState = rememberTextFieldState(),
 ) {
 //    var expanded by remember { mutableStateOf(false) }
 //    val onExpandedChange = { new: Boolean ->
@@ -68,7 +71,10 @@ fun PlainSearchBar(
         inputField = {
             SearchBarDefaults.InputField(
                 query = state.text.toString(),
-                onQueryChange = { state.edit { replace(0, length, it) } },
+                onQueryChange = {
+                    state.edit { replace(0, length, it) }
+                    onQueryChange(state.text)
+                },
                 onSearch = { },
                 expanded = false,
                 onExpandedChange = { },
@@ -90,6 +96,73 @@ fun PlainSearchBar(
             )
         }
     ) { }
+}
+
+/** An [Executor][java.util.concurrent.Executor] containing the *single thread* that will run *blocking tasks*.
+ *
+ * A normal [Thread] could be used here, but it's better to use an [Executor][java.util.concurrent.Executor]
+ * for ease of pushing tasks to the thread. */
+private val WORKER_THREAD = Executors.newSingleThreadExecutor()
+/** The **ID** of the [Thread] in the *single-threaded executor* [WORKER_THREAD].
+ *
+ * After it is first initialized, the **ID** will not change,
+ * because the code it runs will never *throw* an [Exception],
+ * so the thread will not terminate until the end of the program.
+ *
+ * The value does not need to be put in a [Mutex][kotlinx.coroutines.sync.Mutex],
+ * as only the worker thread can modify this value. */
+private var WORKER_THREAD_ID: Long? = null
+
+sealed class Result<out T> {
+    class Ok<out T>(val value: T) : Result<T>()
+    class Err(val error: Throwable) : Result<Nothing>()
+}
+
+/** Run a **task** in a *single-threaded* work Executor,
+ * and [remember] the value in a [Composable].
+ *
+ * This function adds the **task** to the executor and immediately returns a `mutableStateOf(null)`.
+ * While the task waits to be executed (and while it is being executed),
+ * the *UI* thread can continue the rendering process without having to wait for work to be done.
+ *
+ * After the **task** is finished, the returned [MutableState] is updated to contain a value:
+ * either the *success* value produced by the **task** Callback,
+ * or an *error value* if the **task** threw an [Exception] ([Throwable]).
+ *
+ * > Note: If this function detects that it is being called from the **worker thread**,
+ * > it will just run the *task* in the same thread without first pushing it to the Executor and waiting its turn.
+ * > This optimizes the order of running *tasks* in case the caller calls [rememberWork] without knowing it is in the worker thread,
+ * > Although this should be extremely rare. */
+@Composable
+fun <T> rememberWork(task: suspend () -> T): MutableState<Result<T>?> = remember {
+    // Run on the current thread if it is the worker thread
+    if (WORKER_THREAD_ID != null && Thread.currentThread().id == WORKER_THREAD_ID) {
+        runBlocking {
+            mutableStateOf(try {
+                Result.Ok(task())
+            } catch (e: Throwable) {
+                Result.Err(e)
+            })
+        }
+    } else {
+        val state = mutableStateOf<Result<T>?>(null)
+
+        WORKER_THREAD.execute {
+            if (WORKER_THREAD_ID == null) {
+                WORKER_THREAD_ID = Thread.currentThread().id
+            }
+
+            runBlocking {
+                state.value = try {
+                    Result.Ok(task())
+                } catch (e: Throwable) {
+                    Result.Err(e)
+                }
+            }
+        }
+
+        state
+    }
 }
 
 // Formatting method taken from https://stackoverflow.com/a/56668796/32115191.

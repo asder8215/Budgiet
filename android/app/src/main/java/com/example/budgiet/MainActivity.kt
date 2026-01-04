@@ -29,9 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.paging.Pager
-import androidx.paging.PagingSource
-import androidx.paging.PagingState
 import com.example.budgiet.ui.theme.BudgietTheme
 
 class MainActivity : ComponentActivity() {
@@ -89,9 +86,9 @@ class Location(
     val name: String,
     val address: String,
 )
-fun getRecentLocations(start: UInt = 0u, length: UInt = 10u): List<Location> {
+fun getRecentLocations(start: UInt = 0u, len: UInt = 10u): List<Location> {
     // Returns a list of bogus locations for now
-    return List(length.toInt()) { i ->
+    return List(len.toInt()) { i ->
         val id = i.toUInt() + start
         if (id % 2u == 0u) {
             Location(id = id, name = "Chipotle", "$id$id$id Main Street, Bronx NY")
@@ -100,28 +97,18 @@ fun getRecentLocations(start: UInt = 0u, length: UInt = 10u): List<Location> {
         }
     }
 }
-// NOTE: key is NOT a Location ID, but an index in the pagination
-class ListSource(
-    val query: CharSequence,
-) : PagingSource<UInt, Location>() {
-    override suspend fun load(params: LoadParams<UInt>): LoadResult<UInt, Location> {
-        // If params.key is null, it is the first load, so we start loading with STARTING_KEY
-        val start = params.key ?: 0u
-        // Returns a list of bogus locations for now
-        val data = getRecentLocations(start, params.loadSize.toUInt())
-            .filter { location -> location.name.startsWith(query) }
-
-        // TODO: how to pass search query to LoadParams?
-        return TODO()
-    }
-
-    override fun getRefreshKey(state: PagingState<UInt, Location>): UInt? {
-        TODO("Not yet implemented")
+fun getLocationsSearchPage(query: CharSequence, start: UInt, len: UInt): List<Location> {
+    // Returns a list of bogus locations for now
+    return List(len.toInt()) { i ->
+        val id = i.toUInt() + start
+        if (id % 2u == 0u) {
+            Location(id = id, name = query.toString(), "$id$id$id Main Street, Bronx NY")
+        } else {
+            Location(id = id, name = query.toString(), "$id$id$id IsNuts Lane, Los Angeles CA")
+        }
     }
 }
-fun searchLocations(query: CharSequence): PagingSource<UInt, Location> {
-    return ListSource(query)
-}
+
 
 @Preview(showBackground = true)
 @Composable

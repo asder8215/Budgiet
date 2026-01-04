@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -36,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -55,14 +57,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.paging.Pager
+import androidx.paging.LoadState
 import androidx.paging.PagingConfig
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.example.budgiet.ui.theme.BudgietTheme
+import kotlin.math.ceil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,14 +166,12 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDatePicker = false
-                        // FIXME: DatePicker is providing incorrect dates
-                        datePickerState.selectedDateMillis?.let {
-                            selectedDate = Date(it)
-                        }
+            confirmButton = { TextButton(
+                onClick = {
+                    showDatePicker = false
+                    // FIXME: DatePicker is providing incorrect dates
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Date(millis)
                     }
                 ) {
                     Text("Ok")
@@ -242,8 +244,28 @@ fun LocationPickerDialog(
     val dialogPadding = 8.dp
     val textIconButtonPadding = 12.dp
     val textIconButtonSpacing = 4.dp
-    val searchPageSize = 10u
+    val dividerThickness = DividerDefaults.Thickness
+    // How many items should fit in the LazyColumn Widget (in terms of a list item's height)
+    val searchColumnSize = 3.5
+    // Page size should have enough items to scroll down several times the number of items showed.
+    val searchPageSize = ceil(searchColumnSize).toInt() * 3
     val searchState = rememberTextFieldState()
+
+    val searchPager = rememberListPager(
+        searchState = searchState,
+        getPage = { query, start, len -> getLocationsSearchPage(query, start, len) },
+        config = PagingConfig(
+            pageSize = searchPageSize,
+            initialLoadSize = searchPageSize,
+            // Must be > pageSize * 3, let's make it 4 pages.
+            maxSize = searchPageSize * 4,
+            // Don't let the pager return a bunch of unloaded items, we are going to show a single unloaded item at a time.
+            enablePlaceholders = false,
+        )
+    )
+    val pagedItems = searchPager.flow.collectAsLazyPagingItems()
+    // These are the items shown if the search does not have a query
+    val recentItems by rememberWork { getRecentLocations() }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -260,33 +282,37 @@ fun LocationPickerDialog(
                 modifier = Modifier.padding(all = dialogPadding)
                 // TODO: Animate height
             ) {
-                PlainSearchBar(state = searchState)
+                PlainSearchBar(
+                    onQueryChange = { pagedItems.refresh() },
+                    state = searchState,
+                )
 
                 // Show search results if the SearchBar has a query,
                 // otherwise show recent locations.
                 if (searchState.text.isEmpty()) {
-                    Text(
-                        "Recent",
-                        modifier = Modifier
-                            .fillMaxWidth()
+                    Text("Recent",
+                        modifier = Modifier.fillMaxWidth()
                             .padding(start = dialogPadding)
                     )
                 } else {
                     Spacer(Modifier.height(dialogPadding))
                 }
 
-                val dividerThickness = DividerDefaults.Thickness
                 val localDensity = LocalDensity.current
                 // Get the height of the first item in the list to determine the size of the whole List widget.
-                // Give it a default in case the item's height could not be obtained.
-                var itemHeight by remember { mutableStateOf(70.5.dp) }
+                var itemHeight by remember { mutableStateOf<Dp?>(null) }
+                // Have a default in case the item's height could not be obtained.
+                val defaultItemHeight = 70.5.dp
 
                 @Composable
                 fun LocationItem(location: Location, modifier: Modifier = Modifier) {
                     ListItem(
                         modifier = modifier
                             .onGloballyPositioned { coords ->
-                                itemHeight = with(localDensity) { coords.size.height.toDp() }
+                                // Only set the height for the first rendered element
+                                if (itemHeight == null) {
+                                    itemHeight = with(localDensity) { coords.size.height.toDp() }
+                                }
                             }
                             .clip(RoundedCornerShape(4.dp))
                             .clickable(onClick = { onSubmit(location) }),
@@ -297,52 +323,85 @@ fun LocationPickerDialog(
 
                 @Composable
                 fun LoadingItem(modifier: Modifier = Modifier) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         ListItem(
                             modifier = modifier
+                                .heightIn(min = itemHeight ?: defaultItemHeight)
                                 .clip(RoundedCornerShape(4.dp)),
                             headlineContent = { }
                         )
                         CircularProgressIndicator()
                     }
                 }
-
-                val searchPager = remember {
-                    Pager(
-                        config = PagingConfig(pageSize = searchPageSize.toInt())
-                    ) { searchLocations(searchState.text) }
+                @Composable
+                fun ErrorItem(type: String, message: String? = null, modifier: Modifier = Modifier) {
+                    val color = MaterialTheme.colorScheme.error
+                    ListItem(
+                        // This item does not need to be resized,
+                        // but it should also not set the List height because it has an irregular size due to the error message.
+                        modifier = modifier,
+                        leadingContent = { Icon(
+                            Icons.Filled.Info, // TODO: replace with the Material Error icon
+                            "Error",
+                            tint = color,
+                        ) },
+                        headlineContent = { Text("Error: $type", color = color) },
+                        supportingContent = message?.let { { Text(message, color = color) } }
+                    )
                 }
-                val pagedItems = searchPager.flow.collectAsLazyPagingItems()
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(dividerThickness),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        // List's height is enough to show only 3.5 items (+ their dividers).
+                    modifier = Modifier.clip(RoundedCornerShape(16.dp))
+                        // List's height should be conscious of it's items' and dividers' heights.
                         // TODO: use clamp
-                        .heightIn(max = itemHeight * 3.5f + dividerThickness * 3),
+                        .heightIn(max = (itemHeight ?: defaultItemHeight) * searchColumnSize.toFloat() + dividerThickness * 3),
                 ) {
                     // Show search results if the SearchBar has a query,
                     // otherwise show recent locations
                     if (searchState.text.isEmpty()) {
-                        items(
-                            getRecentLocations(),
-                            key = { location -> location.id }
-                        ) { location ->
-                            LocationItem(location)
+                        if (recentItems == null) {
+                            // Show loading indicator while the items are being obtained
+                            item { LoadingItem() }
+                        } else {
+                            when (recentItems!!) {
+                                is Result.Ok -> {
+                                    items((recentItems!! as Result.Ok).value,
+                                        key = { location -> location.id.toInt() } // Why can't use UInt ....
+                                    ) { location ->
+                                        LocationItem(location)
+                                    }
+                                }
+                                // Show the item as an Error if the task threw an Exception
+                                is Result.Err -> {
+                                    val error = (recentItems!! as Result.Err).error
+                                    item { ErrorItem(error.javaClass.name, error.localizedMessage) }
+                                }
+                            }
                         }
                     } else {
-                        items(
-                            pagedItems.itemCount,
-                            key = pagedItems.itemKey { location -> location.id }
-                        ) { index ->
-                            pagedItems[index]?.let { location ->
-                                LocationItem(location)
-                            } ?: run {
-                                LoadingItem()
+                        if (pagedItems.loadState.prepend == LoadState.Loading) {
+                            item { LoadingItem() }
+                        }
+
+                        if (pagedItems.loadState.refresh == LoadState.Loading) {
+                            item { LoadingItem() }
+                        } else {
+                            items(pagedItems.itemCount,
+                                key = pagedItems.itemKey { location -> location.id.toInt() }
+                            ) { index ->
+                                pagedItems[index]?.let { location ->
+                                    LocationItem(location)
+                                } ?: run {
+                                    // This will never be null as long as enablePlaceholders = false in the Pager.
+                                    // Leave it here tho, in case we change it to true and forget about it.
+                                    LoadingItem()
+                                }
                             }
+                        }
+
+                        if (pagedItems.loadState.append == LoadState.Loading) {
+                            item { LoadingItem() }
                         }
                     }
                 }
