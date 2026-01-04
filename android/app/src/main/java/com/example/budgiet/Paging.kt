@@ -13,7 +13,7 @@ typealias PagingKey = UInt
 
 /** The **function** that is in charge of getting the **data** that will be loaded by the [ListPagingSource].
  * ```kotlin
- * (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
+ * suspend (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
  * ```
  *
  * This function *must be* ***pure*** and ***consecutive***.
@@ -26,6 +26,11 @@ typealias PagingKey = UInt
  * getPage("", 0, 5) -> [ 1, 2, 3, 4, 5 ]
  * getPage("", 1, 5) -> [ 2, 3, 4, 5, 6 ]
  * ```
+ *
+ * ### Suspend
+ *
+ * A [PageGetter] runs in a **worker thread** and can adopt any *suspend* behavior they wish.
+ * This allows the *UI* thread to keep rendering without stutters while the [PageGetter] is producing a result.
  *
  * ### Parameters
  *
@@ -48,7 +53,7 @@ typealias PagingKey = UInt
  *
  *   If the **size** of the [List] is less than the requested **length**,
  *   the *pager* will assume that there are no more items in the dataset and will not request any further pages. */
-typealias PageGetter<T> = (CharSequence, UInt, UInt) -> List<T>
+typealias PageGetter<T> = suspend (CharSequence, UInt, UInt) -> List<T>
 
 /** Create a [Pager] that persists in a [Composable].
  *
@@ -62,6 +67,10 @@ typealias PageGetter<T> = (CharSequence, UInt, UInt) -> List<T>
  * ```  */
 @Composable
 fun <T: Any> rememberListPager(
+    /**```kotlin
+     * suspend (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
+     * ```
+     * See [PageGetter]. */
     getPage: PageGetter<T>,
     searchState: TextFieldState? = null,
     config: PagingConfig,
@@ -85,6 +94,10 @@ fun <T: Any> rememberListPager(
  *     Ideally, only a reference to the **query** text should be passed in here,
  *     but I don't think this is possible, so the whole *state* must be passed in. */
 class ListPagingSource<T: Any>(
+    /**```kotlin
+     * suspend (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
+     * ```
+     * See [PageGetter]. */
     val getPage: PageGetter<T>,
     val searchState: TextFieldState? = null,
 ) : PagingSource<PagingKey, T>() {
@@ -109,10 +122,12 @@ class ListPagingSource<T: Any>(
 
         // If params.key is null, it is the first load, so we start loading with STARTING_KEY
         val start = params.key ?: 0u
-        // TODO: Call getPage from a worker thread
-        val data = getPage(searchState.text, start, params.loadSize.toUInt())
-            // Ignore items that don't fit on this page. They should be loaded on the next page
-            .take(params.loadSize)
+        // Call getPage from a worker thread
+        val data = runWork {
+            getPage(searchState.text, start, params.loadSize.toUInt())
+                // Ignore items that don't fit on this page. They should be loaded on the next page
+                .take(params.loadSize)
+        }
 
         return LoadResult.Page(
             data = data,

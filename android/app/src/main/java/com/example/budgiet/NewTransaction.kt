@@ -282,6 +282,7 @@ fun LocationPickerDialog(
                 modifier = Modifier.padding(all = dialogPadding)
                 // TODO: Animate height
             ) {
+                // TODO: cancel getPage when the clear button is clicked
                 PlainSearchBar(
                     onQueryChange = { pagedItems.refresh() },
                     state = searchState,
@@ -360,24 +361,21 @@ fun LocationPickerDialog(
                     // Show search results if the SearchBar has a query,
                     // otherwise show recent locations
                     if (searchState.text.isEmpty()) {
-                        if (recentItems == null) {
-                            // Show loading indicator while the items are being obtained
-                            item { LoadingItem() }
-                        } else {
-                            when (recentItems!!) {
-                                is Result.Ok -> {
-                                    items((recentItems!! as Result.Ok).value,
-                                        key = { location -> location.id.toInt() } // Why can't use UInt ....
-                                    ) { location ->
-                                        LocationItem(location)
-                                    }
-                                }
-                                // Show the item as an Error if the task threw an Exception
-                                is Result.Err -> {
-                                    val error = (recentItems!! as Result.Err).error
-                                    item { ErrorItem(error.javaClass.name, error.localizedMessage) }
+                        when (recentItems) {
+                            is Result.Ok -> {
+                                items((recentItems as Result.Ok).value,
+                                    key = { location -> location.id.toInt() } // Why can't use UInt ....
+                                ) { location ->
+                                    LocationItem(location)
                                 }
                             }
+                            // Show the item as an Error if the task threw an Exception
+                            is Result.Err -> {
+                                val error = (recentItems as Result.Err).error
+                                item { ErrorItem(error.javaClass.name, error.localizedMessage) }
+                            }
+                            // Show loading indicator while the items are being obtained
+                            null -> item { LoadingItem() }
                         }
                     } else {
                         if (pagedItems.loadState.prepend == LoadState.Loading) {
@@ -413,6 +411,7 @@ fun LocationPickerDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // TODO: cancel work on getRecentLocations and getPage when this is clicked
                     TextButton(onClick = onDismiss) {
                         Text("Cancel")
                     }
