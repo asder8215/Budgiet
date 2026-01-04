@@ -99,7 +99,7 @@ class ListPagingSource<T: Any>(
 
     override suspend fun load(params: LoadParams<PagingKey>): LoadResult<PagingKey, T> {
         // Don't perform a page query if the query is empty or null
-        if (this.searchState == null /* || this.searchState.text.isEmpty()*/
+        if (this.searchState == null || this.searchState.text.isEmpty()
         || params.loadSize < 0)
             return LoadResult.Page(
                 data = listOf(),
@@ -107,11 +107,9 @@ class ListPagingSource<T: Any>(
                 nextKey = null,
             )
 
-        // TODO: test that loading indicator shows up with sleep(1000)
-
         // If params.key is null, it is the first load, so we start loading with STARTING_KEY
         val start = params.key ?: 0u
-        // Returns a list of bogus locations for now
+        // TODO: Call getPage from a worker thread
         val data = getPage(searchState.text, start, params.loadSize.toUInt())
             // Ignore items that don't fit on this page. They should be loaded on the next page
             .take(params.loadSize)
@@ -140,4 +138,7 @@ class ListPagingSource<T: Any>(
 class ListPagingTests {
     // TODO
     // TODO: test with data.size < pageSize, == pageSize, > pageSize
+    // TODO: test that load does not hold the UI thread
+    // TODO: test that loading indicator item shows up when loading takes long (do 5 secs).
+    //       The indicator should show up when the search is initiated, when scrolling down, and scrolling up
 }
