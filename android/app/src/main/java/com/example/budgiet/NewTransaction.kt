@@ -1,5 +1,6 @@
 package com.example.budgiet
 
+import android.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,9 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -33,6 +36,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -49,6 +53,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -68,6 +75,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
     var selectedDate by remember { mutableStateOf(Date.now()) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<Location?>(null) }
+    var selectedPrice by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier,
@@ -88,17 +96,66 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
         }
         FormField("Location") {
             OutlinedButton(onClick = { showLocationPicker = true }) {
-                Text(if (selectedLocation != null) {
-                    selectedLocation!!.name
-                } else {
-                    "Select Location"
-                })
+                Text(
+                    if (selectedLocation != null) {
+                        selectedLocation!!.name
+                    } else {
+                        "Select Location"
+                    }
+                )
             }
             PlainToolTipBox("Auto-select Location") {
                 FilledIconButton(onClick = { TODO() }) {
                     Icon(Icons.Outlined.LocationOn, "Auto-select Location")
                 }
             }
+        }
+        FormField("Price") {
+            var parseError by remember { mutableStateOf(false) }
+            OutlinedTextField(
+                onValueChange = {
+                    /* TODO: current behavior is that only decimal
+                     * values are accepted; we should be able to
+                     * accept pasted values and parse through them,
+                     * producing an error message on why the value is invalid
+                     */
+                    try {
+                        if (it != "") {
+                            it.toBigDecimal()
+                        }
+                        parseError = false
+                    } catch (_: NumberFormatException) {
+                        parseError = true
+                    }
+                    selectedPrice = it
+                },
+                value = selectedPrice,
+                modifier = Modifier
+                    // fixme: use clamping than max for width
+                    .widthIn(max = 150.dp)
+                    .testTag("price_input_field"),
+                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number
+                ),
+                isError = parseError,
+                placeholder = {
+                    Text(
+                        "0",
+                        textAlign = TextAlign.End,
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        color = androidx.compose.ui.graphics.Color(Color.GRAY)
+                    )
+                },
+                supportingText = {
+                    if (parseError) {
+                        val errorMsg = "$selectedPrice is not a valid price value"
+                        Text(errorMsg)
+                    }
+                }
+                // TODO: Add Icon decoration for the price (like $ USD)
+            )
         }
     }
 
@@ -116,15 +173,17 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                     datePickerState.selectedDateMillis?.let { millis ->
                         selectedDate = Date(millis)
                     }
+                ) {
+                    Text("Ok")
                 }
-            ) {
-                Text("Ok")
-            } },
-            dismissButton = { TextButton(
-                onClick = { showDatePicker = false }
-            ) {
-                Text("Cancel")
-            } },
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDatePicker = false }
+                ) {
+                    Text("Cancel")
+                }
+            },
         ) {
             DatePicker(
                 state = datePickerState,
@@ -138,6 +197,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
             onSubmit = { location -> selectedLocation = location }
         )
     }
+
 }
 
 @Composable
@@ -260,6 +320,7 @@ fun LocationPickerDialog(
                         supportingContent = { Text(location.address) },
                     )
                 }
+
                 @Composable
                 fun LoadingItem(modifier: Modifier = Modifier) {
                     Box(contentAlignment = Alignment.Center) {
@@ -267,7 +328,7 @@ fun LocationPickerDialog(
                             modifier = modifier
                                 .heightIn(min = itemHeight ?: defaultItemHeight)
                                 .clip(RoundedCornerShape(4.dp)),
-                            headlineContent = {  }
+                            headlineContent = { }
                         )
                         CircularProgressIndicator()
                     }
@@ -346,7 +407,8 @@ fun LocationPickerDialog(
                 }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .padding(top = dialogPadding / 2),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
