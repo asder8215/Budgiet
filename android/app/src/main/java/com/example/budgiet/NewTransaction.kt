@@ -173,10 +173,10 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                     datePickerState.selectedDateMillis?.let { millis ->
                         selectedDate = Date(millis)
                     }
-                ) {
-                    Text("Ok")
                 }
-            },
+            ) {
+                Text("Ok")
+            } },
             dismissButton = {
                 TextButton(
                     onClick = { showDatePicker = false }
