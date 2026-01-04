@@ -251,8 +251,8 @@ fun LocationPickerDialog(
     val searchPageSize = ceil(searchColumnSize).toInt() * 3
     val searchState = rememberTextFieldState()
 
-    val searchPager = rememberListPager(
-        searchState = searchState,
+    val searchPager = rememberQueryListPager(
+        queryState = searchState,
         getPage = { query, start, len -> getLocationsSearchPage(query, start, len) },
         config = PagingConfig(
             pageSize = searchPageSize,

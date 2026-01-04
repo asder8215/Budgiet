@@ -29,8 +29,8 @@ typealias PagingKey = UInt
  *
  * ### Suspend
  *
- * A [PageGetter] runs in a **worker thread** and can adopt any *suspend* behavior they wish.
- * This allows the *UI* thread to keep rendering without stutters while the [PageGetter] is producing a result.
+ * A [QueryPageGetter] runs in a **worker thread** and can adopt any *suspend* behavior they wish.
+ * This allows the *UI* thread to keep rendering without stutters while the [QueryPageGetter] is producing a result.
  *
  * ### Parameters
  *
@@ -53,9 +53,11 @@ typealias PagingKey = UInt
  *
  *   If the **size** of the [List] is less than the requested **length**,
  *   the *pager* will assume that there are no more items in the dataset and will not request any further pages. */
-typealias PageGetter<T> = suspend (CharSequence, UInt, UInt) -> List<T>
+typealias QueryPageGetter<T> = suspend (CharSequence, UInt, UInt) -> List<T>
+/** The same as [QueryPageGetter], but does not have a **query** parameter. */
+typealias PageGetter<T> = suspend (UInt, UInt) -> List<T>
 
-/** Create a [Pager] that persists in a [Composable].
+/** Create a [Pager] for a **query** result that persists in a [Composable].
  *
  * See [ListPagingSource] for parameters.
  *
@@ -66,41 +68,71 @@ typealias PageGetter<T> = suspend (CharSequence, UInt, UInt) -> List<T>
  * val pagedItems = searchPager.flow.collectAsLazyPagingItems()
  * ```  */
 @Composable
-fun <T: Any> rememberListPager(
+fun <T: Any> rememberQueryListPager(
     /**```kotlin
      * suspend (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
      * ```
-     * See [PageGetter]. */
-    getPage: PageGetter<T>,
-    searchState: TextFieldState? = null,
+     * See [QueryPageGetter]. */
+    getPage: QueryPageGetter<T>,
+    queryState: TextFieldState,
     config: PagingConfig,
 ): Pager<PagingKey, T> = remember {
-    Pager(config) { ListPagingSource(getPage, searchState) }
+    Pager(config) { ListPagingSource.withQuery(getPage, queryState) }
+}
+/** Create a [Pager] for a **list** that persists in a [Composable].
+ *
+ * Same as [rememberQueryListPager], but does not use a **query** for getting pages. */
+@Composable
+fun <T: Any> rememberListPager(
+    /**```kotlin
+     * suspend (startIndex: UInt, length: UInt) -> List<T>
+     * ```
+     * See [PageGetter]. */
+    getPage: PageGetter<T>,
+    config: PagingConfig,
+): Pager<PagingKey, T> = remember {
+    Pager(config) { ListPagingSource.withoutQuery(getPage) }
 }
 
 /** A generic [PagingSource] over a list of items.
  *
  * This class was mainly designed to be used for *text searches* that query a *database*,
  * but the implementation allows it to be *general purpose*,
- * as long as **getPage** conforms to [PageGetter]'s expected behavior.
+ * as long as **getPage** conforms to [QueryPageGetter]'s expected behavior.
+ *
+ * Use the [withQuery] and [withoutQuery] constructors.
  *
  * ### Parameters
  *
- *  * **getPage**: Callback that gets the data for a Page. See [PageGetter].
+ *  * **getPage**: Callback that gets the data for a Page. See [QueryPageGetter].
  *
- *  * **searchState**: The *state* value of the [androidx.compose.material3.SearchBar],
+ *  * **queryState**: The *state* value of the [androidx.compose.material3.SearchBar],
  *     which holds the **query** text.
  *
  *     Ideally, only a reference to the **query** text should be passed in here,
  *     but I don't think this is possible, so the whole *state* must be passed in. */
-class ListPagingSource<T: Any>(
-    /**```kotlin
-     * suspend (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
-     * ```
-     * See [PageGetter]. */
-    val getPage: PageGetter<T>,
-    val searchState: TextFieldState? = null,
-) : PagingSource<PagingKey, T>() {
+class ListPagingSource<T: Any> private constructor(private val type: ListPagingSourceType<T>) : PagingSource<PagingKey, T>() {
+    companion object {
+        /** This constructor is for a [PagingSource] that uses a **query** to get pages. */
+        fun <T: Any> withQuery(
+            /**```kotlin
+             * suspend (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
+             * ```
+             * See [QueryPageGetter]. */
+            getPage: QueryPageGetter<T>,
+            queryState: TextFieldState,
+        ) = ListPagingSource<T>(ListPagingSourceType.WithQuery(getPage, queryState))
+
+        /** This constructor is for a [PagingSource] that ***does not*** use a **query** to get pages. */
+        fun <T: Any> withoutQuery(
+            /**```kotlin
+             * suspend (startIndex: UInt, length: UInt) -> List<T>
+             * ```
+             * See [PageGetter]. */
+            getPage: PageGetter<T>,
+        ) = ListPagingSource<T>(ListPagingSourceType.NoQuery(getPage))
+    }
+
     /** Return `null` if the **key** is out of bounds.
      *
      * Made the argument type [Int] instead of [UInt] to avoid underflow,
@@ -111,22 +143,30 @@ class ListPagingSource<T: Any>(
     }
 
     override suspend fun load(params: LoadParams<PagingKey>): LoadResult<PagingKey, T> {
-        // Don't perform a page query if the query is empty or null
-        if (this.searchState == null || this.searchState.text.isEmpty()
-        || params.loadSize < 0)
-            return LoadResult.Page(
-                data = listOf(),
-                prevKey = null,
-                nextKey = null,
-            )
-
         // If params.key is null, it is the first load, so we start loading with STARTING_KEY
         val start = params.key ?: 0u
-        // Call getPage from a worker thread
-        val data = runWork {
-            getPage(searchState.text, start, params.loadSize.toUInt())
-                // Ignore items that don't fit on this page. They should be loaded on the next page
-                .take(params.loadSize)
+
+        val data = when (this.type) {
+            is ListPagingSourceType.NoQuery -> this.type.getPage(start, params.loadSize.toUInt())
+            is ListPagingSourceType.WithQuery -> {
+                val getPage = this.type.getPage
+                val queryState = this.type.queryState
+
+                // Don't perform a page query if the query is empty
+                if (this.type.queryState.text.isEmpty() || params.loadSize < 0) {
+                    return LoadResult.Page(
+                        data = listOf(),
+                        prevKey = null,
+                        nextKey = null,
+                    )
+                }
+                // Call getPage from a worker thread
+                runWork {
+                    getPage(queryState.text, start, params.loadSize.toUInt())
+                        // Ignore items that don't fit on this page. They should be loaded on the next page
+                        .take(params.loadSize)
+                }
+            }
         }
 
         return LoadResult.Page(
@@ -150,10 +190,11 @@ class ListPagingSource<T: Any>(
     }
 }
 
-class ListPagingTests {
-    // TODO
-    // TODO: test with data.size < pageSize, == pageSize, > pageSize
-    // TODO: test that load does not hold the UI thread
-    // TODO: test that loading indicator item shows up when loading takes long (do 5 secs).
-    //       The indicator should show up when the search is initiated, when scrolling down, and scrolling up
+/** A *sum type* that represents whether the [ListPagingSource] uses a **query** to get pages. */
+private sealed class ListPagingSourceType<out T> {
+    class WithQuery<out T>(
+        val getPage: QueryPageGetter<T>,
+        val queryState: TextFieldState,
+    ) : ListPagingSourceType<T>()
+    class NoQuery<out T>(val getPage: PageGetter<T>) : ListPagingSourceType<T>()
 }
