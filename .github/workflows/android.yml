@@ -81,7 +81,8 @@ jobs:
         with:
           api-level: ${{ matrix.api-level }}
           profile: ${{ matrix.profile }}
-          arch: x86_64 # note: may add ARM in future 
+          arch: x86_64 # note: may add ARM in future
+          target: aosp
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
