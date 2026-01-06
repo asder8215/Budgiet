@@ -15,7 +15,7 @@ jobs:
     name: Android Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -23,7 +23,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - name: run unit tests
+      - name: Run unit tests
         run: ./gradlew test
         working-directory: android
     
@@ -32,16 +32,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        api-level: [34, 35, 36]
+        api-level: [21, 29, 34]
         profile: ["Pixel 2"] # may add more devices to test later
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      # Enables hardware acceleration for linux runner 
+      # to enhance test execution speed
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -50,7 +53,7 @@ jobs:
 
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v3
-        
+      
       - name: AVD cache
         uses: actions/cache@v4
         id: avd-cache
@@ -60,6 +63,8 @@ jobs:
             ~/.android/adb*
           key: avd-${{ matrix.api-level }}
 
+      # Caches both the android emulator and snapshot (don't have to create
+      # emulator for future runs)
       - name: create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
@@ -70,11 +75,13 @@ jobs:
           disable-animations: false
           script: echo "Generated AVD snapshot for caching."
 
-      - name: run instrumented tests
+      # Runs all instrumented Android Tests
+      - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
           profile: ${{ matrix.profile }}
+          arch: x86_64 # note: may add ARM in future 
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
