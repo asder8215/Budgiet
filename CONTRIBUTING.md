@@ -13,8 +13,8 @@ Before contributing, there is a couple of things to keep in mind:
 When making a contribution to this repository, follow these guidelines:
 * When implementing a feature or change to the repository, always create a pull request:
     - Add a meaningful and concise title + a detailed description regarding what the feature is about.
-    - Make sure to write meaningful commits typically following the style of 
-    (`"chore: ..."`, `"feat: ..."`, `"fix: ..."`, `"cleanup: ..."`, etc.)
+    - Apply appropriate tags/labels on the PR or issue. (e.g. [`Task`](https://github.com/Soraoke/Budgiet/issues?q=type%3ATask), [`Feature`](https://github.com/Soraoke/Budgiet/issues?q=type%3AFeature), [`enhancement`](https://github.com/Soraoke/Budgiet/issues?q=label%3A%22enhancement%22), etc.).
+    - Write meaningful commit messages.
     - Set the PR to merge with the `dev` branch.
     - Note: If your PR pertains to multiple different features, please separate the changes that you're making
     into multiple different PRs.
