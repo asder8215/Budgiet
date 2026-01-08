@@ -28,6 +28,7 @@ jobs:
         working-directory: android
     
   instrumented-tests:
+    timeout-minutes: 10
     name: Android Instrumented Tests (API ${{ matrix.api-level }})
     runs-on: ubuntu-latest
     strategy:
@@ -70,7 +71,7 @@ jobs:
         with:
           api-level: ${{ matrix.api-level }}
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: false
           working-directory: android
           script: echo "Generated AVD snapshot for caching."
@@ -81,7 +82,10 @@ jobs:
         with:
           api-level: ${{ matrix.api-level }}
           force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: true
           working-directory: android
           script: ./gradlew connectedDebugAndroidTest
+      - name: Kill emulator
+        if: always()
+        run: adb emu kill || true
