@@ -33,7 +33,6 @@ jobs:
     strategy:
       matrix:
         api-level: [21, 29, 34]
-        profile: ["Pixel 2"] # may add more devices to test later
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,28 +64,22 @@ jobs:
 
       # Caches both the android emulator and snapshot (don't have to create
       # emulator for future runs)
-      - name: create AVD and generate snapshot for caching
+      - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          profile: ${{ matrix.profile }}
           force-avd-creation: false
-          arch: x86_64 # note: may add ARM in future
-          target: aosp
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: echo "Generated AVD snapshot for caching."
 
       # Runs all instrumented Android Tests
-      - name: Run instrumented tests
+      - name: Instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          profile: ${{ matrix.profile }}
-          arch: x86_64 # note: may add ARM in future
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          working-directory: android
-          script: ./gradlew connectedCheck
+          script: ./gradlew connectedDebugAndroidTest
