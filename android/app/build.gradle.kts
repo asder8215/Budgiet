@@ -1,4 +1,4 @@
-val myMinSdk = 34
+val myMinSdk = 21
 val myTargetSdk = 36
 
 plugins {
