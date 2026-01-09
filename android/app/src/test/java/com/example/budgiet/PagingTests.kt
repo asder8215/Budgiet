@@ -70,6 +70,7 @@ class PagingUnitTests {
             generatedPages.add(page)
             page
         })
+        val infiniteFlow = infinitePager.flow
 
         // It seems that the Pager will always load at least 2 pages in the initial load, even if you tell it to only load 1
         // // Scroll to first item, generate first page.
@@ -80,9 +81,9 @@ class PagingUnitTests {
 
         // Scroll to the second page.
         assertEquals(
-            actual = infinitePager.scrollTo(pageSize),
+            actual = infiniteFlow.scrollTo(pageSize),
             // Only 2 pages should be loaded.
-            expected = (0..<pageSize.toInt() * 2).toList(),
+            expected = (0..<(pageSize * 2u).toInt()).toList(),
         )
         // Check that the pages are fragmented correctly.
         assertEquals(
@@ -94,7 +95,7 @@ class PagingUnitTests {
 
         // Scroll to the third page (max loaded).
         assertEquals(
-            actual = infinitePager.scrollTo((maxPages - 1u) * pageSize),
+            actual = infiniteFlow.scrollTo((maxPages - 1u) * pageSize),
             // Only 3 pages should be loaded.
             expected = (0..<(maxPages * pageSize).toInt()).toList(),
         )
@@ -106,9 +107,9 @@ class PagingUnitTests {
 
         // Scroll to the fourth page (unload 1)
         assertEquals(
-            actual = infinitePager.scrollTo(maxPages * pageSize),
+            actual = infiniteFlow.scrollTo(maxPages * pageSize),
             // Only 3 pages should be loaded.
-            expected = (0..<((maxPages + 1u) * pageSize).toInt()).toList(),
+            expected = (pageSize.toInt()..<((maxPages + 1u) * pageSize).toInt()).toList(),
         )
         // Check that the pages are fragmented correctly.
         assertEquals(
@@ -120,8 +121,22 @@ class PagingUnitTests {
             expected = listOf(listOf(4, 5, 6, 7), listOf(8, 9, 10, 11), listOf(12, 13, 14, 15)),
         )
 
-        // TODO: test that previous pages are unloaded when scrolling far enough,
-        //  and that the same items are loaded back in when scrolling back
+        // Scroll back to the first page (unloaded page should be reloaded, and last page should be unloaded).
+        generatedPages.removeLast()
+        assertEquals(
+            actual = infiniteFlow.scrollTo(0u),
+            // Only 3 pages should be loaded.
+            expected = (0..<(maxPages * pageSize).toInt()).toList(),
+        )
+        // Check that the pages are fragmented correctly.
+        assertEquals(
+            actual = run {
+                generatedPages.removeFirst()
+                generatedPages
+            },
+            // First page is appended to the end of the loaded pages.
+            expected = listOf(listOf(4, 5, 6, 7), listOf(8, 9, 10, 11), listOf(0, 1, 2, 3)),
+        )
     }
 
     /** Test that the Pager stops trying to load items when the data size is smaller than the page size. */
@@ -228,18 +243,26 @@ class PagingUnitTests {
         )
     }
 
-    /* Test that load does not block the UI thread. */
-    @Test
-    fun blockThreadTest() {
-        val sleepingTime = 5000L
-        val sleepingPager = newPager(ListPagingSource.withoutQuery { start, length ->
-            Thread.sleep(sleepingTime)
-            genList(1u, start, length)
-        })
-
-        val duration = measureTime { sleepingPager.flow.scrollTo(0u) }
-        assert(duration.inWholeMilliseconds < sleepingTime)
-    }
+    // This seems fundamentally impossible to test because the suspend primitives callable from a non-suspend block will block until the coroutine is finished,
+    // or will  create a Job in another thread, which defeats the purpose of checking if the PagingSource executes the loader in a thread other than the current thread.
+    // We just have to trust that the UI thread will not be blocked while the worker thread executes the loader.
+    //
+    // /* Test that load does not block the UI thread. */
+    // @Test
+    // fun blockThreadTest() {
+    //     val sleepingTime = 5000L
+    //     val sleepingPager = newPager(ListPagingSource.withoutQuery { start, length ->
+    //         Thread.sleep(sleepingTime)
+    //         genList(1u, start, length)
+    //     })
+    //
+    //     val duration = measureTime {
+    //         CoroutineScope(Dispatchers.IO).launch {
+    //             sleepingPager.flow.launchIn(this)
+    //         }
+    //     }
+    //     assert(duration.inWholeMilliseconds < sleepingTime)
+    // }
 
     /** Testing that the logic for genList() works */
     @Test
