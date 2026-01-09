@@ -121,7 +121,7 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
              * See [QueryPageGetter]. */
             getPage: QueryPageGetter<T>,
             queryState: TextFieldState,
-        ) = ListPagingSource<T>(ListPagingSourceType.WithQuery(getPage, queryState))
+        ) = ListPagingSource(ListPagingSourceType.WithQuery(getPage, queryState))
 
         /** This constructor is for a [PagingSource] that ***does not*** use a **query** to get pages. */
         fun <T: Any> withoutQuery(
@@ -130,7 +130,7 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
              * ```
              * See [PageGetter]. */
             getPage: PageGetter<T>,
-        ) = ListPagingSource<T>(ListPagingSourceType.NoQuery(getPage))
+        ) = ListPagingSource(ListPagingSourceType.NoQuery(getPage))
     }
 
     /** Return `null` if the **key** is out of bounds.
@@ -146,28 +146,38 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
         // If params.key is null, it is the first load, so we start loading with STARTING_KEY
         val start = params.key ?: 0u
 
+        val getEmptyPage = {
+            LoadResult.Page(
+                data = listOf<T>(),
+                prevKey = null as PagingKey?,
+                nextKey = null,
+            )
+        }
+
+        if (params.loadSize < 0) {
+            return getEmptyPage()
+        }
+
         val data = when (this.type) {
-            is ListPagingSourceType.NoQuery -> this.type.getPage(start, params.loadSize.toUInt())
+            is ListPagingSourceType.NoQuery -> runWork {
+                this.type.getPage(start, params.loadSize.toUInt())
+            }
             is ListPagingSourceType.WithQuery -> {
                 val getPage = this.type.getPage
                 val queryState = this.type.queryState
 
                 // Don't perform a page query if the query is empty
-                if (this.type.queryState.text.isEmpty() || params.loadSize < 0) {
-                    return LoadResult.Page(
-                        data = listOf(),
-                        prevKey = null,
-                        nextKey = null,
-                    )
+                if (this.type.queryState.text.isEmpty()) {
+                    return getEmptyPage()
                 }
                 // Call getPage from a worker thread
                 runWork {
                     getPage(queryState.text, start, params.loadSize.toUInt())
-                        // Ignore items that don't fit on this page. They should be loaded on the next page
-                        .take(params.loadSize)
                 }
             }
         }
+            // Ignore items that don't fit on this page. They should be loaded on the next page
+            .take(params.loadSize)
 
         return LoadResult.Page(
             data = data,

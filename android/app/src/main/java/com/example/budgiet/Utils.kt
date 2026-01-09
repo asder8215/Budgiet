@@ -202,6 +202,10 @@ suspend fun <T> runWork(task: suspend () -> T): T { // TODO: should return Resul
         val channel = Channel<Result<T>>(capacity = 1)
 
         WORKER_THREAD.execute {
+            if (WORKER_THREAD_ID == null) {
+                WORKER_THREAD_ID = Thread.currentThread().id
+            }
+
             // Don't know why it's complaining about this if the Runnable is not suspend, so it wouldn't compile anyways.
             @Suppress("RunBlockingInSuspendFunction")
             runBlocking {
