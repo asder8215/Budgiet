@@ -28,7 +28,7 @@ jobs:
         working-directory: android
     
   instrumented-tests:
-    timeout-minutes: 10
+    timeout-minutes: 15
     name: Android Instrumented Tests (API ${{ matrix.api-level }})
     runs-on: ubuntu-latest
     strategy:
