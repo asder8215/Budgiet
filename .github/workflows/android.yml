@@ -54,38 +54,35 @@ jobs:
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v3
       
-      - name: AVD cache
-        uses: actions/cache@v4
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-${{ matrix.api-level }}
+      # - name: AVD cache
+      #   uses: actions/cache@v4
+      #   id: avd-cache
+      #   with:
+      #     path: |
+      #       ~/.android/avd/*
+      #       ~/.android/adb*
+      #     key: avd-${{ matrix.api-level }}
 
       # Caches both the android emulator and snapshot (don't have to create
       # emulator for future runs)
-      - name: Create AVD and generate snapshot for caching
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ matrix.api-level }}
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
-          disable-animations: false
-          working-directory: android
-          script: echo "Generated AVD snapshot for caching."
+      # - name: Create AVD and generate snapshot for caching
+      #   if: steps.avd-cache.outputs.cache-hit != 'true'
+      #   uses: reactivecircus/android-emulator-runner@v2
+      #   with:
+      #     api-level: ${{ matrix.api-level }}
+      #     force-avd-creation: false
+      #     emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+      #     disable-animations: false
+      #     working-directory: android
+      #     script: echo "Generated AVD snapshot for caching."
 
       # Runs all instrumented Android Tests
       - name: Instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          force-avd-creation: false
+          force-avd-creation: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: true
           working-directory: android
           script: ./gradlew connectedDebugAndroidTest
-      - name: Kill emulator
-        if: always()
-        run: adb emu kill || true
