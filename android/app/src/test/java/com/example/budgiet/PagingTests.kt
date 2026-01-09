@@ -2,11 +2,14 @@ package com.example.budgiet
 
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import androidx.paging.testing.asSnapshot
 import junit.framework.AssertionFailedError
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.math.min
+import kotlin.time.measureTime
 
 class PagingUnitTests {
     /** How many **items** a page has.
@@ -31,9 +34,9 @@ class PagingUnitTests {
      * aka `list.last() < numPages * pageSize`.
      *
      * @param numPages How many **pages** of items can be generated.
-     * @param start is the *first* item in the [List].
+     * @param start The *first* item in the [List].
      *        It is also a way to tell what page it is on.
-     * @param length is how many items the list contains. */
+     * @param length How many items are requested for this specific page. */
     fun genList(numPages: UInt?, start: UInt, length: UInt): List<Int> {
         if (numPages == null)
             return List(length.toInt()) { i -> start.toInt() + i }
@@ -51,8 +54,8 @@ class PagingUnitTests {
     /** Same as [androidx.paging.testing.SnapshotLoader.scrollTo].
      *
      * @return all loaded **pages** in the [Pager]. */
-    fun <K: Any, V: Any> Pager<K, V>.scrollTo(index: UInt): List<V> = runBlocking {
-        this@scrollTo.flow.asSnapshot {
+    fun <T: Any> Flow<PagingData<T>>.scrollTo(index: UInt): List<T> = runBlocking {
+        this@scrollTo.asSnapshot {
             this.scrollTo(index.toInt())
         }
     }
@@ -116,13 +119,127 @@ class PagingUnitTests {
             },
             expected = listOf(listOf(4, 5, 6, 7), listOf(8, 9, 10, 11), listOf(12, 13, 14, 15)),
         )
+
+        // TODO: test that previous pages are unloaded when scrolling far enough,
+        //  and that the same items are loaded back in when scrolling back
     }
 
-    // TODO: test with data.size < pageSize, == pageSize, > pageSize
-    // TODO: test that load does not hold the UI thread
-    // TODO: test that loading indicator item shows up when loading takes long (do 5 secs).
-    //       The indicator should show up when the search is initiated, when scrolling down, and scrolling up
-    // TODO: test that previous pages are unloaded when scrolling far enough, and that the same items are loaded back in when scrolling back
+    /** Test that the Pager stops trying to load items when the data size is smaller than the page size. */
+    @Test
+    fun smallerDataSize() {
+        /** How many pages should be full pages (i.e. contain the amount of items requested).
+         *
+         * Use maxPages to avoid unload of first page.
+         * That is tested in pageByPageTest(). */
+        val numFullPages = maxPages - 1u
+        val partialPageSize = pageSize - 2u
+        val smallerPager = newPager(ListPagingSource.withoutQuery { start, length ->
+            if (start >= numFullPages * pageSize) {
+                // For the last page, return less data than requested.
+                genList(numFullPages + 1u, start, partialPageSize)
+            } else {
+                genList(numFullPages, start, length)
+            }
+        })
+        val smallerFlow = smallerPager.flow
+
+        // Scroll to the last full page (should all be full pages).
+        assertEquals(
+            actual = smallerFlow.scrollTo((numFullPages - 1u) * pageSize),
+            expected = (0..<(numFullPages * pageSize).toInt()).toList()
+        )
+
+        // Scroll to the last page (should be partially filled).
+        assertEquals(
+            actual = smallerFlow.scrollTo(numFullPages * pageSize),
+            expected = (0..<((numFullPages * pageSize) + partialPageSize).toInt()).toList()
+        )
+
+        // Scroll past last page (should be empty).
+        assertEquals(
+            actual = smallerFlow.scrollTo((numFullPages + 1u) * pageSize),
+            expected = (0..<((numFullPages * pageSize) + partialPageSize).toInt()).toList()
+        )
+    }
+
+    /** Test that the Pager keeps trying to load items when the data size is the same as the page size.
+     * The pager should also stop trying to load items when the data comes up empty. */
+    @Test
+    fun exactDataSize() {
+        /** How many pages should be generated.
+         *
+         * Use maxPages to avoid unload of first page.
+         * That is tested in pageByPageTest(). */
+        val numPages = maxPages - 1u
+        val exactPager = newPager(ListPagingSource.withoutQuery { start, length ->
+            genList(numPages, start, length)
+        })
+        val exactFlow = exactPager.flow
+
+        // Scroll to the last page.
+        assertEquals(
+            actual = exactFlow.scrollTo((numPages - 1u) * pageSize),
+            expected = (0..<(numPages * pageSize).toInt()).toList()
+        )
+
+        // Scroll past last page (should be empty).
+        assertEquals(
+            actual = exactFlow.scrollTo(numPages * pageSize),
+            expected = (0..<(numPages * pageSize).toInt()).toList()
+        )
+    }
+
+    /** Test that the Pager ignores last items when the data size is larger than the page size. */
+    @Test
+    fun largerDataSize() {
+        /** How many pages should be have the exact amount of items requested.
+         *
+         * Use maxPages to avoid unload of first page.
+         * That is tested in pageByPageTest(). */
+        val numExactPages = maxPages - 1u
+        /** How many extra items should be generated for the last page. */
+        val extraPageSize = 3u // Arbitrary value
+        val largerPager = newPager(ListPagingSource.withoutQuery { start, length ->
+            if (start == numExactPages * pageSize) {
+                // For the last page, return less data than requested.
+                List((pageSize + extraPageSize).toInt()) { i -> start.toInt() + i }
+            } else {
+                genList(numExactPages, start, length)
+            }
+        })
+        val largerFlow = largerPager.flow
+
+        // Scroll to the last full page (should all be full pages).
+        assertEquals(
+            actual = largerFlow.scrollTo((numExactPages - 1u) * pageSize),
+            expected = (0..<(numExactPages * pageSize).toInt()).toList()
+        )
+
+        // Scroll to the last page (should ignore extra items).
+        assertEquals(
+            actual = largerFlow.scrollTo(numExactPages * pageSize),
+            expected = (0..<((numExactPages + 1u) * pageSize).toInt()).toList()
+        )
+
+        // Scroll past last page (should be empty).
+        assertEquals(
+            actual = largerFlow.scrollTo((numExactPages + 1u) * pageSize),
+            expected = (0..<((numExactPages * pageSize + 1u) + extraPageSize).toInt()).toList()
+        )
+    }
+
+    /* Test that load does not block the UI thread. */
+    @Test
+    fun blockThreadTest() {
+        val sleepingTime = 5000L
+        val sleepingPager = newPager(ListPagingSource.withoutQuery { start, length ->
+            Thread.sleep(sleepingTime)
+            genList(1u, start, length)
+        })
+
+        val duration = measureTime { sleepingPager.flow.scrollTo(0u) }
+        assert(duration.inWholeMilliseconds < sleepingTime)
+    }
 
     /** Testing that the logic for genList() works */
     @Test
