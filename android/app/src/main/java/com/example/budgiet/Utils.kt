@@ -195,9 +195,14 @@ fun <T> rememberWork(task: suspend () -> T): MutableState<Result<T>?> = remember
  * > it will just run the *task* in the same thread without first pushing it to the Executor and waiting its turn.
  * > This optimizes the order of running *tasks* in case the caller calls [runWork] without knowing it is in the worker thread,
  * > Although this should be extremely rare. */
-suspend fun <T> runWork(task: suspend () -> T): T { // TODO: should return Result instead? but that's not the kotlin/java convention...
+suspend fun <T> runWork(task: suspend () -> T): Result<T> {
     return if (isWorkerThread()) {
-        task()
+        // Don't allow an exception to terminate the worker thread; gotta catch em all.
+        try {
+            Result.Ok(task())
+        } catch (e: Throwable) {
+            Result.Err(e)
+        }
     } else {
         val channel = Channel<Result<T>>(capacity = 1)
 
@@ -218,10 +223,7 @@ suspend fun <T> runWork(task: suspend () -> T): T { // TODO: should return Resul
             }
         }
 
-        when (val result = channel.receive()) {
-            is Result.Ok -> result.value
-            is Result.Err -> throw result.error
-        }
+        channel.receive()
     }
 }
 

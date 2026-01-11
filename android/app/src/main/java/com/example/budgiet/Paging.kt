@@ -158,7 +158,7 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
             return getEmptyPage()
         }
 
-        val data = when (this.type) {
+        val result = when (this.type) {
             is ListPagingSourceType.NoQuery -> runWork {
                 this.type.getPage(start, params.loadSize.toUInt())
             }
@@ -176,8 +176,11 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
                 }
             }
         }
+        val data = when (result) {
             // Ignore items that don't fit on this page. They should be loaded on the next page
-            .take(params.loadSize)
+            is Result.Ok -> result.value.take(params.loadSize)
+            is Result.Err -> return LoadResult.Error(result.error)
+        }
 
         return LoadResult.Page(
             data = data,
