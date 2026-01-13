@@ -1,4 +1,4 @@
-package com.example.budgiet
+package com.example.budgiet.transactionTests
 
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
@@ -8,18 +8,18 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import com.example.budgiet.MainPage
 import org.junit.Rule
 import org.junit.Test
 
-class TransactionTests {
-
+class PriceFieldTests {
     @get:Rule
     val composeTestRule = createComposeRule()
-    val price_input_node = composeTestRule
+    val priceInputNode = composeTestRule
         .onNodeWithTag("price_input_field")
 
     @Test
-    fun showsPlaceHolderValueOnPriceField() {
+    fun showsPlaceHolderValue() {
         composeTestRule.setContent {
             MainPage()
         }
@@ -33,12 +33,12 @@ class TransactionTests {
         // Note: includeEditableText should be marked as false
         // because we're only checking that the placeholder value
         // is seen (Text = "0", EditableText = "")
-        price_input_node
+        priceInputNode
             .assertTextEquals("0", includeEditableText = false) // placeholder text should be seen
     }
 
     @Test
-    fun enterWholeIntegerOnPriceField() {
+    fun enterWholeInteger() {
         composeTestRule.setContent {
             MainPage()
         }
@@ -49,15 +49,15 @@ class TransactionTests {
                     hasClickAction()
         ).performClick()
 
-        price_input_node
+        priceInputNode
             .performTextInput("100")
 
-        price_input_node
+        priceInputNode
             .assertTextEquals("100")
     }
 
     @Test
-    fun enterDecimalOnPriceField() {
+    fun enterDecimal() {
         composeTestRule.setContent {
             MainPage()
         }
@@ -68,15 +68,15 @@ class TransactionTests {
                     hasClickAction()
         ).performClick()
 
-        price_input_node
+        priceInputNode
             .performTextInput("100.00")
 
-        price_input_node
+        priceInputNode
             .assertTextEquals("100.00")
     }
 
     @Test
-    fun enterInvalidCharacterOnPriceField() {
+    fun enterInvalidCharacter() {
         composeTestRule.setContent {
             MainPage()
         }
@@ -87,20 +87,20 @@ class TransactionTests {
                     hasClickAction()
         ).performClick()
 
-        price_input_node
+        priceInputNode
             .performTextInput("f")
 
 
         // TODO: This needs a screenshot UI test to see a red outline on the box
-        price_input_node
+        priceInputNode
             .assertTextContains("f")
 
-        price_input_node
+        priceInputNode
             .assertTextEquals("f is not a valid price value", includeEditableText = false)
     }
 
     @Test
-    fun enterHalfValidHalfInvalidCharactersPriceField() {
+    fun enterHalfValidHalfInvalidCharacters() {
         composeTestRule.setContent {
             MainPage()
         }
@@ -111,20 +111,20 @@ class TransactionTests {
                     hasClickAction()
         ).performClick()
 
-        price_input_node
+        priceInputNode
             .performTextInput("1")
 
-        price_input_node
+        priceInputNode
             .assertTextEquals("1")
 
-        price_input_node
+        priceInputNode
             .performTextInput("f")
 
         // TODO: This needs a screenshot UI test to see a red outline on the box
-        price_input_node
+        priceInputNode
             .assertTextContains("1f")
 
-        price_input_node
+        priceInputNode
             .assertTextEquals("1f is not a valid price value", includeEditableText = false)
     }
 
