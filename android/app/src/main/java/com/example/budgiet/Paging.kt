@@ -9,7 +9,8 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 
 // NOTE: key is NOT a Location ID, but an index in the pagination
-typealias PagingKey = UInt
+private typealias PagingKey = UInt
+typealias ListPager<T> = Pager<PagingKey, T>
 
 /** The **function** that is in charge of getting the **data** that will be loaded by the [ListPagingSource].
  * ```kotlin
@@ -76,12 +77,13 @@ fun <T: Any> rememberQueryListPager(
     getPage: QueryPageGetter<T>,
     queryState: TextFieldState,
     config: PagingConfig,
-): Pager<PagingKey, T> = remember {
+): ListPager<T> = remember {
     Pager(config) { ListPagingSource.withQuery(getPage, queryState) }
 }
 /** Create a [Pager] for a **list** that persists in a [Composable].
  *
  * Same as [rememberQueryListPager], but does not use a **query** for getting pages. */
+@Suppress("unused")
 @Composable
 fun <T: Any> rememberListPager(
     /**```kotlin
@@ -90,7 +92,7 @@ fun <T: Any> rememberListPager(
      * See [PageGetter]. */
     getPage: PageGetter<T>,
     config: PagingConfig,
-): Pager<PagingKey, T> = remember {
+): ListPager<T> = remember {
     Pager(config) { ListPagingSource.withoutQuery(getPage) }
 }
 
