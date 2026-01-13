@@ -69,7 +69,7 @@ import kotlin.math.ceil
 @Composable
 fun NewTransactionForm(modifier: Modifier = Modifier) {
     var showDatePicker by remember { mutableStateOf(false) }
-    var selectedDate by remember { mutableStateOf(Date.Companion.now()) }
+    var selectedDate by remember { mutableStateOf(Date.now()) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<Location?>(null) }
     var selectedPrice by remember { mutableStateOf("") }
@@ -158,7 +158,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            selectableDates = Date.Companion.pastOrPresentDates(),
+            selectableDates = Date.pastOrPresentDates(),
         )
 
         DatePickerDialog(
@@ -298,7 +298,7 @@ fun LocationPickerDialog(
                         when (recentItems) {
                             is Result.Ok -> {
                                 items(
-                                    items = (recentItems as com.example.budgiet.Result.Ok).value,
+                                    items = (recentItems as Result.Ok).value,
                                     key = { location -> location.id.toInt() }, // Why can't use UInt ....
                                 ) { location -> this.LocationItem(location) }
                             }
