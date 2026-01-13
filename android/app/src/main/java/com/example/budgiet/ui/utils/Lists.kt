@@ -1,0 +1,376 @@
+package com.example.budgiet.ui.utils
+
+import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemColors
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.Pager
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
+import com.example.budgiet.PagingKey
+import com.example.budgiet.rememberListPager
+
+/** When a [LazyColumn]'s [ListItem]'s **height** can't be determined because it has no content,
+ * use this value for the **height** instead. */
+private val LIST_ITEM_DEFAULT_HEIGHT = 70.5.dp
+val LIST_SHAPE = RoundedCornerShape(16.dp)
+val LIST_ITEM_SHAPE = RoundedCornerShape(4.dp)
+const val LIST_DEFAULT_VISIBLE_ITEMS = 3.5f
+
+/** Receiver scope for [ListColumn].
+ *
+ * Emulates the same interface as [LazyListScope],
+ * but instead exposes a custom [ListItemScope],
+ * which itself exposes the correct composable items to use in [ListColumn]. */
+class ListColumnScope internal constructor(
+    private val innerScope: LazyListScope,
+    /** Determines the height of the whole list,
+     * and also sets the height of *list items* that don't know what their height should be. */
+    internal val itemHeight: MutableState<Dp?>,
+    internal val itemShape: Shape,
+) {
+    @Suppress("unused")
+    /** See [LazyListScope.item]. */
+    fun item(
+        key: Any? = null,
+        contentType: Any? = null,
+        content: @Composable ListItemScope.() -> Unit,
+    ) = this.innerScope.item(key, contentType) { newListItemScope(this).content() }
+
+    @Suppress("unused")
+    /** See [LazyListScope.items] (overload with **count**). */
+    fun items(
+        count: Int,
+        key: ((index: Int) -> Any)? = null,
+        contentType: (index: Int) -> Any? = { null },
+        itemContent: @Composable ListItemScope.(index: Int) -> Unit,
+    ) = this.innerScope.items(count, key, contentType) { i ->
+        newListItemScope(this).itemContent(i)
+    }
+
+    @Suppress("unused")
+    /** See [LazyListScope.items] (overload with [List]). */
+    fun <T> items(
+        items: List<T>,
+        key: ((item: T) -> Any)? = null,
+        contentType: (item: T) -> Any? = { null },
+        itemContent: @Composable ListItemScope.(item: T) -> Unit,
+    ) = this.innerScope.items(items, key, contentType) { item ->
+        newListItemScope(this).itemContent(item)
+    }
+
+    @Suppress("unused")
+    /** See [LazyListScope.itemsIndexed]. */
+    fun <T> itemsIndexed(
+        items: List<T>,
+        key: ((Int, T) -> Any)? = null,
+        contentType: (Int, T) -> Any? = { _, _ -> null },
+        itemContent: @Composable ListItemScope.(Int, T) -> Unit,
+    ) = this.innerScope.itemsIndexed(items, key, contentType) { i, item ->
+        newListItemScope(this).itemContent(i, item)
+    }
+
+    private fun newListItemScope(innerScope: LazyItemScope) = ListItemScope(innerScope, this)
+}
+
+/** A custom [LazyItemScope], which exposes the composables that should be used in [ListColumn].
+ * All composables in here are implemented with [ListItem].
+ *
+ * * **[DataItem]**: Represents *good data* in the list.
+ *
+ * * **[LoadingItem]**: Renders an item with a **progress indicator** composable as the content,
+ *     indicating that the [ListColumn] is waiting for more items to **load**.
+ *
+ *     This is primarily used in the [PagedListColumn].
+ *
+ * * **[ErrorItem]**: Represents *bad data* in the list.
+ *
+ *     This occurs when an **Exception** is thrown when an item is being fetched.
+ *     For example, when the [Pager] attempts to load a page, but the loader throws. */
+class ListItemScope internal constructor(
+    private val innerScope: LazyItemScope,
+    private val listScope: ListColumnScope,
+) : LazyItemScope {
+    /** Represents *good data* in the [ListColumn]. */
+    @Composable
+    fun DataItem(
+        headlineContent: @Composable (() -> Unit),
+        modifier: Modifier = Modifier,
+        overlineContent: @Composable (() -> Unit)? = null,
+        supportingContent: @Composable (() -> Unit)? = null,
+        leadingContent: @Composable (() -> Unit)? = null,
+        trailingContent: @Composable (() -> Unit)? = null,
+        colors: ListItemColors = ListItemDefaults.colors(),
+        tonalElevation: Dp = ListItemDefaults.Elevation,
+        shadowElevation: Dp = ListItemDefaults.Elevation
+    ) {
+        val localDensity = LocalDensity.current
+
+        ListItem(
+            headlineContent = headlineContent,
+            modifier = modifier
+                .onGloballyPositioned { coords ->
+                    // Only set the height for the first rendered element
+                    if (this.listScope.itemHeight.value == null) {
+                        this.listScope.itemHeight.value = with(localDensity) { coords.size.height.toDp() }
+                    }
+                }
+                .clip(this.listScope.itemShape),
+            overlineContent = overlineContent,
+            supportingContent = supportingContent,
+            leadingContent = leadingContent,
+            trailingContent = trailingContent,
+            colors = colors,
+            tonalElevation = tonalElevation,
+            shadowElevation = shadowElevation,
+        )
+    }
+    /** Renders an item with a **progress indicator** composable as the content,
+     * indicating that the [ListColumn] is waiting for more items to **load**.
+     *
+     * This is primarily used in the [PagedListColumn]. */
+    @Composable
+    fun LoadingItem(
+        modifier: Modifier = Modifier,
+        progressIndicator: @Composable () -> Unit = { CircularProgressIndicator() },
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            DataItem(
+                modifier = modifier
+                    .heightIn(min = listScope.itemHeight.value ?: LIST_ITEM_DEFAULT_HEIGHT)
+                    .clip(LIST_ITEM_SHAPE),
+                headlineContent = { }
+            )
+            progressIndicator()
+        }
+    }
+    /** Represents *bad data* in the [ListColumn].
+     *
+     * This occurs when an **Exception** is thrown when an item is being fetched.
+     * For example, when the [Pager] attempts to load a page, but the loader throws. */
+    @Composable
+    fun ErrorItem(modifier: Modifier = Modifier, type: String, message: String? = null) {
+        val color = MaterialTheme.colorScheme.error
+        DataItem(
+            // This item does not need to be resized,
+            // but it should also not set the List height because it has an irregular size due to the error message.
+            modifier = modifier.clip(this.listScope.itemShape),
+            leadingContent = { Icon(
+                Icons.Filled.Info, // TODO: replace with the Material Error icon
+                "Error",
+                tint = color,
+            ) },
+            headlineContent = { Text("Error: $type", color = color) },
+            supportingContent = message?.let { { Text(message, color = color) } }
+        )
+    }
+
+    override fun Modifier.fillParentMaxHeight(fraction: Float): Modifier
+            = this@ListItemScope.innerScope::class.java.getMethod("fillParentMaxHeight").invoke(this, fraction) as Modifier
+    override fun Modifier.fillParentMaxSize(fraction: Float): Modifier
+            = this@ListItemScope.innerScope::class.java.getMethod("fillParentMaxSize").invoke(this, fraction) as Modifier
+    override fun Modifier.fillParentMaxWidth(fraction: Float): Modifier
+            = this@ListItemScope.innerScope::class.java.getMethod("fillParentMaxWidth").invoke(this, fraction) as Modifier
+}
+
+/** A [LazyColumn] that uses custom composables for the **items**,
+ * giving the [LazyColumn] a more proper *"list" look*.
+ *
+ * See [ListItemScope] for details on these composables.
+ *
+ * @param state The state object to be used to control or observe the list's state.
+ *   May be omitted if the caller is not interested in handling the list's state.
+ * @param contentPadding Apply padding to the **content** of the list as a whole,
+ *   *not* each individual item.
+ *   This essentially allows adding padding to the *sides* of all items,
+ *   *top* of the *first* item, and *bottom* of the *last* item.
+ * @param reverseLayout See [LazyColumn].
+ * @param visibleItems How many *list items* should be visible at a time.
+ *   Essentially sets the [ListColumn]'s **height** in terms of its **items**'s heights.
+ * @param shape The [Shape] around the list widget.
+ *   This allows setting the **roundness** of the list's corners.
+ * @param itemShape The [Shape] around individual **items** in the list.
+ *   This allows setting the **roundness** of the corners of all items.
+ *   This value only has an effect if an **item** is using one of the composables in [ListItemScope].
+ * @param dividerThickness How much **spacing** should be applied between each item in the list.
+ * @param content The space to declare the items in the list.
+ *   Use [LazyListScope.item] or [LazyListScope.items],
+ *   and within those call one of the composables in [ListItemScope]. */
+@Composable
+fun ListColumn(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    reverseLayout: Boolean = false,
+    visibleItems: Float = LIST_DEFAULT_VISIBLE_ITEMS,
+    shape: Shape = LIST_SHAPE,
+    itemShape: Shape = LIST_ITEM_SHAPE,
+    dividerThickness: Dp = DividerDefaults.Thickness,
+    content: ListColumnScope.() -> Unit
+) {
+    // Get the height of the first item in the list to determine the size of the whole List widget.
+    val itemHeight = remember { mutableStateOf<Dp?>(null) }
+    val listMaxHeight = (itemHeight.value ?: LIST_ITEM_DEFAULT_HEIGHT) * visibleItems + dividerThickness * 3
+
+    LazyColumn(
+        state = state,
+        contentPadding = contentPadding,
+        reverseLayout = reverseLayout,
+        verticalArrangement = Arrangement.spacedBy(dividerThickness),
+        // List's height should be conscious of it's items' and dividers' heights.
+        // TODO: use clamp
+        modifier = modifier.heightIn(max = listMaxHeight)
+            .clip(shape),
+    ) { ListColumnScope(this, itemHeight, itemShape).content() }
+}
+
+/** Contains methods that allow *checking* and *controlling* the state of a [Pager].
+ *
+ * The controller is *bound* to a [Pager] after it is passed to a [Composable] that uses a [Pager].
+ * Before the controller is *bound* none of its methods will have any effect and will return *default values*. */
+class PagerController internal constructor() {
+    private lateinit var _items: LazyPagingItems<*>
+    private lateinit var pager: Pager<PagingKey, *>
+
+    /** Initializes the controller to operate on the provided [Pager] **items**. */
+    @SuppressLint("ComposableNaming")
+    @Composable
+    internal fun <T: Any> bind(pager: Pager<PagingKey, T>) {
+        if (itemsNullable == null) {
+            this.pager = pager
+            this._items = pager.flow.collectAsLazyPagingItems()
+        }
+    }
+
+    /** Don't forget to call [bind] before reading from this value!
+     *
+     * @throws IllegalArgumentException if the caller does not use the same pager that this controller was bound to.
+     * @throws UninitializedPropertyAccessException if this controller has not been bound to a pager yet. */
+    internal fun <T: Any> items(pager: Pager<PagingKey, T>): LazyPagingItems<T> {
+        if (this.pager !== pager) {
+            throw IllegalArgumentException("Used a different pager than the one that this controller was bound to")
+        }
+        /* SAFETY: This cast will always work because _items is tied to the pager,
+         * so they're going to have the same `T`,
+         * and the values never change after they're initialized.
+         * */
+        @Suppress("UNCHECKED_CAST")
+        return this._items as LazyPagingItems<T>
+    }
+
+    /** Exposed methods MUST use this instead of [items]. */
+    private val itemsNullable: LazyPagingItems<*>?
+        get() = if (this::_items.isInitialized) { this._items } else { null }
+
+    /** Trigger a **refresh* in the [Pager]'s data,
+     * invalidating *all loaded items* in the [Pager].
+     *
+     * Wrapper for [LazyPagingItems.refresh]. */
+    fun refresh() = this.itemsNullable?.refresh()
+
+    /** Check if the [Pager] is still *loading* items that are being **prepended** to the list. */
+    val prependLoading: Boolean
+        get() = this.itemsNullable?.let { it.loadState.prepend == LoadState.Loading } ?: false
+    /** Check if the [Pager] is still *loading* items after a [refresh]. */
+    val refreshLoading: Boolean
+        get() = this.itemsNullable?.let { it.loadState.refresh == LoadState.Loading } ?: false
+    /** Check if the [Pager] is still *loading* items that are being **appended** to the list. */
+    val appendLoading: Boolean
+        get() = this.itemsNullable?.let { it.loadState.append == LoadState.Loading } ?: false
+}
+
+/** A [ListColumn] that uses a [Pager] to load items.
+ *
+ * See [ListColumn] for the rest of the *parameters*.
+ *
+ * @param pager The [Pager] is responsible for *loading* and *unloading* the data.
+ *
+ *   Since the [Pager] itself doesn't expose any methods to check state or read items,
+ *   the caller must provide a [PagerController] to do any of that.
+ *   If the caller is not interested in having any control over the [Pager],
+ *   they may omit the **pagerController** argument, and an *inaccessible* [PagerController] will be used.
+ *
+ *   See [rememberListPager] of how to create a [Pager] in a composable.
+ *
+ * @param pagerController Allows the caller to trigger a *[refresh][PagerController.refresh]* on the [Pager]'s data.
+ * @param itemKey A Callback that generates an *unique key* for every **item**. See [LazyListScope.items].
+ * @param itemContent The [Composable] that will be called for *each item* in the [Pager]'s data.
+ *   The caller *should* use [ListItemScope.DataItem], but it is not required. */
+@Composable
+fun <T: Any> PagedListColumn(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    reverseLayout: Boolean = false,
+    visibleItems: Float = LIST_DEFAULT_VISIBLE_ITEMS,
+    shape: Shape = LIST_SHAPE,
+    itemShape: Shape = LIST_ITEM_SHAPE,
+    dividerThickness: Dp = DividerDefaults.Thickness,
+    pager: Pager<PagingKey, T>,
+    pagerController: PagerController = remember { PagerController() },
+    itemKey: (T) -> Any,
+    itemContent: @Composable ListItemScope.(T) -> Unit,
+) {
+    pagerController.bind(pager)
+
+    ListColumn(modifier, state, contentPadding, reverseLayout, visibleItems, shape, itemShape, dividerThickness) {
+        if (pagerController.prependLoading) {
+            item { this.LoadingItem() }
+        }
+
+        if (pagerController.refreshLoading) {
+            item { this.LoadingItem() }
+        } else {
+            // TODO: Make ListPagingSource expose items as Result so we can handle when a page throws an Exception.
+            val items = pagerController.items(pager)
+            this.items(items.itemCount,
+                key = items.itemKey { item -> itemKey(item) }
+            ) { item ->
+                items[item]?.let { item ->
+                    this.itemContent(item)
+                } ?: run {
+                    // This will never be null as long as enablePlaceholders = false in the Pager.
+                    // Leave it here tho, in case we change it to true and forget about it.
+                    this.LoadingItem()
+                }
+            }
+        }
+
+        if (pagerController.appendLoading) {
+            item { this.LoadingItem() }
+        }
+    }
+}

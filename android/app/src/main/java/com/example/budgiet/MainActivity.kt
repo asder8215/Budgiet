@@ -29,7 +29,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.budgiet.ui.NewTransactionForm
 import com.example.budgiet.ui.theme.BudgietTheme
+import com.example.budgiet.ui.utils.PlainToolTipBox
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
