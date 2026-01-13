@@ -13,10 +13,11 @@ Before contributing, there is a couple of things to keep in mind:
 When making a contribution to this repository, follow these guidelines:
 * When implementing a feature or change to the repository, always create a pull request:
     - Add a meaningful and concise title + a detailed description regarding what the feature is about.
-    - Make sure to write meaningful commits typically following the style of 
-    (`"chore: ..."`, `"feat: ..."`, `"fix: ..."`, `"cleanup: ..."`, etc.)
+    - Apply appropriate tags/labels on the PR or issue. (e.g. [`Task`](https://github.com/Soraoke/Budgiet/issues?q=type%3ATask), [`Feature`](https://github.com/Soraoke/Budgiet/issues?q=type%3AFeature), [`enhancement`](https://github.com/Soraoke/Budgiet/issues?q=label%3A%22enhancement%22), etc.).
+    - Write meaningful commit messages.
     - Set the PR to merge with the `dev` branch.
-    - Note: If your PR pertains to multiple different features, please separate the changes that you're making
+    - When merging a PR, use the following format for the merge commit message: `Merge #<PR_NUMBER>: <PR_TITLE>`.
+    > **Note**: If your PR pertains to multiple different features, please separate the changes that you're making
     into multiple different PRs.
 * Always format your code accordingly to the language's style guidelines:
     - For Kotlin code, format your code using Android Studio's `"Code -> Reformat Code"` option;
@@ -24,8 +25,8 @@ When making a contribution to this repository, follow these guidelines:
     - For Swift code, format your code using `swift-format`.
 * Always add test cases (if necessary) for the feature/change to avoid future regression of the app.
 * Make sure that the current PR passes all existing CI tests.
-* If the PR is formatted properly and passes CI tests, you can request a review from either @Megadash452 or 
-@asder8215.
+* If the PR is formatted properly and passes CI tests, you can request a review from either [@Megadash452](https://github.com/Megadash452) or 
+[@asder8215](https://github.com/asder8215).
 
 Making GitHub issues is a form of contribution as well!
 If there are any issues or desired features you would like to report for Budgiet,

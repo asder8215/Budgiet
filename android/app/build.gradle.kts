@@ -1,3 +1,6 @@
+val myMinSdk = 26
+val myTargetSdk = 36
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,13 +10,13 @@ plugins {
 android {
     namespace = "com.example.budgiet"
     compileSdk {
-        version = release(36)
+        version = release(myTargetSdk)
     }
 
     defaultConfig {
         applicationId = "com.example.budgiet"
-        minSdk = 24
-        targetSdk = 36
+        minSdk = myMinSdk
+        targetSdk = myTargetSdk
         versionCode = 1
         versionName = "1.0"
 
@@ -30,14 +33,52 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
+    }
+
+    testOptions {
+        managedDevices {
+            localDevices {
+                create("pixel2api34") {
+                    // Use device profiles you typically see in Android Studio.
+                    device = "Pixel 2"
+                    // Use only API levels 34 and higher.
+                    apiLevel = 34
+                    // To include Google services, use "google".
+                    systemImageSource = "aosp"
+                }
+                create("pixel5api35") {
+                    // Use device profiles you typically see in Android Studio.
+                    device = "Pixel 5"
+                    // Use only API levels 34 and higher.
+                    apiLevel = 35
+                    // To include Google services, use "google".
+                    systemImageSource = "aosp"
+                }
+                create("pixel9aapi36") {
+                    // Use device profiles you typically see in Android Studio.
+                    device = "Pixel 9a"
+                    // Use only API levels 34 and higher.
+                    apiLevel = 36
+                    // To include Google services, use "google".
+                    systemImageSource = "aosp"
+                }
+            }
+            groups {
+                create("pixelDevices") {
+                    targetDevices.add(localDevices["pixel2api34"])
+                    targetDevices.add(localDevices["pixel5api35"])
+                    targetDevices.add(localDevices["pixel9aapi36"])
+                }
+            }
+        }
     }
 }
 
