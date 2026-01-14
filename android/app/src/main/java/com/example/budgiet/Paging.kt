@@ -9,7 +9,7 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 
 // NOTE: key is NOT a Location ID, but an index in the pagination
-private typealias PagingKey = UInt
+typealias PagingKey = UInt
 typealias ListPager<T> = Pager<PagingKey, T>
 
 /** The **function** that is in charge of getting the **data** that will be loaded by the [ListPagingSource].
@@ -35,13 +35,14 @@ typealias ListPager<T> = Pager<PagingKey, T>
  *
  * ### Parameters
  *
- *  * **query** This is the string that the [androidx.compose.material3.SearchBar] linked to the [ListPagingSource]
+ *  * **query**: This is the string that the [SearchBar][androidx.compose.material3.SearchBar] linked to the [ListPagingSource]
  *     wants the getter to *query* for in a Database or an API endpoint.
- *     The getter can ignore the query if the getter does not have a structure to query.
  *
- *  * **startIndex** The index of the item that will be placed at the beginning of the *page*.
+ *     If the getter does not need a query, use [rememberListPager] with [PageGetter] instead.
  *
- *  * **length** The amount of items that the *pager* is requesting.
+ *  * **startIndex**: The index of the item that will be placed at the beginning of the *page*.
+ *
+ *  * **length**: The amount of items that the *pager* is requesting.
  *     This value only serves as a guideline, because the returned [List] can have any *size*,
  *     but the size of the [List] tells the *pager* whether there are more pages to load or not.
  *
@@ -60,14 +61,9 @@ typealias PageGetter<T> = suspend (UInt, UInt) -> List<T>
 
 /** Create a [Pager] for a **query** result that persists in a [Composable].
  *
- * See [ListPagingSource] for parameters.
+ * If the getter does not need a query, use [rememberListPager] with [PageGetter] instead.
  *
- * ### Example
- *
- * ```kotlin
- * val searchPager = rememberListPager(...)
- * val pagedItems = searchPager.flow.collectAsLazyPagingItems()
- * ```  */
+ * See [ListPagingSource] for parameters.  */
 @Composable
 fun <T: Any> rememberQueryListPager(
     /**```kotlin
@@ -83,7 +79,6 @@ fun <T: Any> rememberQueryListPager(
 /** Create a [Pager] for a **list** that persists in a [Composable].
  *
  * Same as [rememberQueryListPager], but does not use a **query** for getting pages. */
-@Suppress("unused")
 @Composable
 fun <T: Any> rememberListPager(
     /**```kotlin
@@ -115,7 +110,9 @@ fun <T: Any> rememberListPager(
  *     but I don't think this is possible, so the whole *state* must be passed in. */
 class ListPagingSource<T: Any> private constructor(private val type: ListPagingSourceType<T>) : PagingSource<PagingKey, T>() {
     companion object {
-        /** This constructor is for a [PagingSource] that uses a **query** to get pages. */
+        /** This constructor is for a [PagingSource] that uses a **query** to get pages.
+         *
+         * If the getter does not need a query, use [ListPagingSource.withoutQuery] with [PageGetter] instead. */
         fun <T: Any> withQuery(
             /**```kotlin
              * suspend (query: CharSequence, startIndex: UInt, length: UInt) -> List<T>
@@ -164,18 +161,8 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
             is ListPagingSourceType.NoQuery -> runWork {
                 this.type.getPage(start, params.loadSize.toUInt())
             }
-            is ListPagingSourceType.WithQuery -> {
-                val getPage = this.type.getPage
-                val queryState = this.type.queryState
-
-                // Don't perform a page query if the query is empty
-                if (this.type.queryState.text.isEmpty()) {
-                    return getEmptyPage()
-                }
-                // Call getPage from a worker thread
-                runWork {
-                    getPage(queryState.text, start, params.loadSize.toUInt())
-                }
+            is ListPagingSourceType.WithQuery -> runWork {
+                this.type.getPage(this.type.queryState.text, start, params.loadSize.toUInt())
             }
         }
         val data = when (result) {
