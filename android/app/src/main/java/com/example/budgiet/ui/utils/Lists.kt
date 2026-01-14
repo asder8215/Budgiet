@@ -301,15 +301,15 @@ class PagerController internal constructor() {
      * Wrapper for [LazyPagingItems.refresh]. */
     fun refresh() = this.itemsNullable?.refresh()
 
-    /** Check if the [Pager] is still *loading* items that are being **prepended** to the list. */
-    val prependLoading: Boolean
-        get() = this.itemsNullable?.let { it.loadState.prepend == LoadState.Loading } ?: false
-    /** Check if the [Pager] is still *loading* items after a [refresh]. */
-    val refreshLoading: Boolean
-        get() = this.itemsNullable?.let { it.loadState.refresh == LoadState.Loading } ?: false
-    /** Check if the [Pager] is still *loading* items that are being **appended** to the list. */
-    val appendLoading: Boolean
-        get() = this.itemsNullable?.let { it.loadState.append == LoadState.Loading } ?: false
+    /** Check the **status** of the *Page* of items that are being **prepended** to the list. */
+    val prependStatus: LoadState
+        get() = this.itemsNullable?.loadState?.prepend ?: LoadState.NotLoading(false)
+    /** Check the **status** of *Pages* after a [refresh]. */
+    val refreshStatus: LoadState
+        get() = this.itemsNullable?.loadState?.refresh ?: LoadState.NotLoading(false)
+    /** Check the **status** of the *Page* of items that are being **appended** to the list. */
+    val appendStatus: LoadState
+        get() = this.itemsNullable?.loadState?.append ?: LoadState.NotLoading(false)
 }
 
 /** A [ListColumn] that uses a [Pager] to load items.
@@ -347,14 +347,22 @@ fun <T: Any> PagedListColumn(
     pagerController.bind(pager)
 
     ListColumn(modifier, state, contentPadding, reverseLayout, visibleItems, shape, itemShape, dividerThickness) {
-        if (pagerController.prependLoading) {
-            item { this.LoadingItem() }
+        /** Renders the **LoadingItem**, **ErrorItem**, or **onLoaded** composables depending on the **status**. */
+        fun ListColumnScope.statusItems(status: LoadState, onLoaded: (ListColumnScope.() -> Unit)? = null) {
+            when (status) {
+                is LoadState.Loading -> item { this.LoadingItem() }
+                is LoadState.Error -> item { this.ErrorItem(
+                    type = status.error.javaClass.name,
+                    message = status.error.message
+                ) }
+                else -> if (onLoaded != null) {
+                    onLoaded()
+                }
+            }
         }
 
-        if (pagerController.refreshLoading) {
-            item { this.LoadingItem() }
-        } else {
-            // TODO: Make ListPagingSource expose items as Result so we can handle when a page throws an Exception.
+        statusItems(pagerController.prependStatus)
+        statusItems(pagerController.refreshStatus) {
             val items = pagerController.items(pager)
             this.items(items.itemCount,
                 key = items.itemKey { item -> itemKey(item) }
@@ -368,9 +376,6 @@ fun <T: Any> PagedListColumn(
                 }
             }
         }
-
-        if (pagerController.appendLoading) {
-            item { this.LoadingItem() }
-        }
+        statusItems(pagerController.appendStatus)
     }
 }
