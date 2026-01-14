@@ -1,11 +1,14 @@
 package com.example.budgiet
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.paging.PagingConfig
+import androidx.paging.PagingSource.LoadResult
 import androidx.paging.testing.TestPager
 import junit.framework.AssertionFailedError
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
+import kotlin.Result
 import kotlin.math.min
 
 class PagingUnitTests {
@@ -274,7 +277,38 @@ class PagingUnitTests {
         }
     }
 
-    // TODO: test exception throwing
+    /** Tests that the pager handles when the data loader throws an Exception, and it doesn't throw outside the pager. */
+    @Test
+    fun exceptionTest() {
+        /** Returns a good first page, bad second page, and good third page. */
+        fun loadData(start: UInt, length: UInt): List<Int> {
+            val maxItem = pageSize * 3u
+            return if (start < pageSize) {
+                genList(maxItem, start, length)
+            } else if (pageSize <= start && start < pageSize * 2u) {
+                throw Exception("2nd page exception")
+            } else {
+                genList(maxItem, start, length)
+            }
+        }
+        var exceptionPager = newPager(ListPagingSource.withoutQuery { start, length ->
+            loadData(start, length)
+        })
+
+        runBlocking {
+            assert(exceptionPager.refresh(0u) is LoadResult.Page)
+            assert(exceptionPager.append()!! is LoadResult.Error)
+
+            // Do the same for pager with query, as the implementation could try skipping the catcher.
+            exceptionPager = newPager(ListPagingSource.withQuery(
+                getPage = { _, start, length -> loadData(start, length) },
+                queryState = TextFieldState()
+            ))
+
+            assert(exceptionPager.refresh(0u) is LoadResult.Page)
+            assert(exceptionPager.append()!! is LoadResult.Error)
+        }
+    }
 
     // This seems fundamentally impossible to test because the suspend primitives callable from a non-suspend block will block until the coroutine is finished,
     // or will  create a Job in another thread, which defeats the purpose of checking if the PagingSource executes the loader in a thread other than the current thread.
@@ -299,6 +333,8 @@ class PagingUnitTests {
     //
     //     // Check that the job was actually running
     //     assert(job.isActive)
+    //
+    //     // Do the same for pager with query, as the implementation could try skipping the runner.
     // }
 
     /** Testing that the logic for genList() works */
