@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
@@ -41,7 +42,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,6 +59,7 @@ import com.example.budgiet.Location
 import com.example.budgiet.Result
 import com.example.budgiet.getLocationsSearchPage
 import com.example.budgiet.getRecentLocations
+import com.example.budgiet.parsePrice
 import com.example.budgiet.rememberListPager
 import com.example.budgiet.rememberWork
 import com.example.budgiet.ui.theme.BudgietTheme
@@ -63,6 +69,7 @@ import com.example.budgiet.ui.utils.PagedListColumn
 import com.example.budgiet.ui.utils.PagerController
 import com.example.budgiet.ui.utils.PlainSearchBar
 import com.example.budgiet.ui.utils.PlainToolTipBox
+import java.util.Currency
 import kotlin.math.ceil
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +82,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
     var selectedPrice by remember { mutableStateOf("") }
 
     Column(
-        modifier = modifier,
+        modifier = modifier.testTag("Transaction Column"),
     ) {
         FormField("Date") {
             OutlinedTextField(
@@ -89,6 +96,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                         }
                     }
                 },
+                modifier = Modifier.testTag("DateTextField")
             )
         }
         FormField("Location") {
@@ -108,34 +116,49 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
             }
         }
         FormField("Price") {
-            var parseError by remember { mutableStateOf(false) }
+            var parseError by remember { mutableStateOf<String?>(null) }
+            val focusManager = LocalFocusManager.current
             OutlinedTextField(
                 onValueChange = {
-                    /* TODO: current behavior is that only decimal
-                     * values are accepted; we should be able to
-                     * accept pasted values and parse through them,
-                     * producing an error message on why the value is invalid
-                     */
-                    try {
-                        if (it != "") {
-                            it.toBigDecimal()
-                        }
-                        parseError = false
-                    } catch (_: NumberFormatException) {
-                        parseError = true
-                    }
                     selectedPrice = it
                 },
                 value = selectedPrice,
                 modifier = Modifier
                     // fixme: use clamping than max for width
                     .widthIn(max = 150.dp)
-                    .testTag("price_input_field"),
+                    .testTag("price_input_field")
+                    .onFocusChanged { state ->
+                        /* FIXME: When currency field is added onto price, change "USD" to whatever
+                        *   currency code we are using */
+                        // When we lose focus on this text field, we should parse the price input
+                        // to see if it is invalid (outputting an error doing so) or format the
+                        // price accordingly if valid
+                        if (!state.isFocused) {
+                            val result = parsePrice(selectedPrice, Currency.getInstance("USD"))
+
+                            when (result) {
+                                is Result.Ok -> {
+                                    selectedPrice = result.value
+                                    parseError = null
+                                }
+
+                                is Result.Err -> {
+                                    parseError = result.error.message
+                                }
+                            }
+                        }
+                    },
                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
                 keyboardOptions = KeyboardOptions.Default.copy(
-                    keyboardType = KeyboardType.Number
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
                 ),
-                isError = parseError,
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                    }
+                ),
+                isError = parseError != null,
                 placeholder = {
                     Text(
                         "0",
@@ -146,11 +169,11 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                     )
                 },
                 supportingText = {
-                    if (parseError) {
-                        val errorMsg = "$selectedPrice is not a valid price value"
-                        Text(errorMsg)
+                    if (parseError != null) {
+                        Text(parseError as String)
                     }
                 }
+
                 // TODO: Add Icon decoration for the price (like $ USD)
             )
         }
@@ -163,17 +186,19 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
-            confirmButton = { TextButton(
-                onClick = {
-                    showDatePicker = false
-                    // FIXME: DatePicker is providing incorrect dates
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        selectedDate = Date(millis)
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDatePicker = false
+                        // FIXME: DatePicker is providing incorrect dates
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            selectedDate = Date(millis)
+                        }
                     }
+                ) {
+                    Text("Ok")
                 }
-            ) {
-                Text("Ok")
-            } },
+            },
             dismissButton = {
                 TextButton(
                     onClick = { showDatePicker = false }
@@ -274,8 +299,10 @@ fun LocationPickerDialog(
                 // Show search results if the SearchBar has a query,
                 // otherwise show recent locations.
                 if (searchState.text.isEmpty()) {
-                    Text("Recent",
-                        modifier = Modifier.fillMaxWidth()
+                    Text(
+                        "Recent",
+                        modifier = Modifier
+                            .fillMaxWidth()
                             .padding(start = dialogPadding)
                     )
                 } else {
@@ -305,7 +332,12 @@ fun LocationPickerDialog(
                             // Show the item as an Error if the task threw an Exception
                             is Result.Err -> {
                                 val error = (recentItems as Result.Err).error
-                                item { this.ErrorItem(type = error.javaClass.name, message = error.localizedMessage) }
+                                item {
+                                    this.ErrorItem(
+                                        type = error.javaClass.name,
+                                        message = error.localizedMessage
+                                    )
+                                }
                             }
                             // Show loading indicator while the items are being obtained
                             null -> item { this.LoadingItem() }
@@ -316,7 +348,13 @@ fun LocationPickerDialog(
                         visibleItems = searchColumnSize,
                         pager = rememberListPager(
                             searchState = searchState,
-                            getPage = { query, start, len -> getLocationsSearchPage(query, start, len) },
+                            getPage = { query, start, len ->
+                                getLocationsSearchPage(
+                                    query,
+                                    start,
+                                    len
+                                )
+                            },
                             config = PagingConfig(
                                 pageSize = searchPageSize,
                                 initialLoadSize = searchPageSize,
