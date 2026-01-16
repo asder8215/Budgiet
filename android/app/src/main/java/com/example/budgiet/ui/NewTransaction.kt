@@ -51,10 +51,9 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.paging.PagingConfig
 import com.example.budgiet.Date
 import com.example.budgiet.Location
-import com.example.budgiet.Result
 import com.example.budgiet.getLocationsSearchPage
 import com.example.budgiet.getRecentLocations
-import com.example.budgiet.rememberListPager
+import com.example.budgiet.rememberQueryListPager
 import com.example.budgiet.rememberWork
 import com.example.budgiet.ui.theme.BudgietTheme
 import com.example.budgiet.ui.utils.ListColumn
@@ -63,6 +62,7 @@ import com.example.budgiet.ui.utils.PagedListColumn
 import com.example.budgiet.ui.utils.PagerController
 import com.example.budgiet.ui.utils.PlainSearchBar
 import com.example.budgiet.ui.utils.PlainToolTipBox
+import com.example.budgiet.Result
 import kotlin.math.ceil
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,8 +314,8 @@ fun LocationPickerDialog(
                 } else {
                     PagedListColumn(
                         visibleItems = searchColumnSize,
-                        pager = rememberListPager(
-                            searchState = searchState,
+                        pager = rememberQueryListPager(
+                            queryState = searchState,
                             getPage = { query, start, len -> getLocationsSearchPage(query, start, len) },
                             config = PagingConfig(
                                 pageSize = searchPageSize,
