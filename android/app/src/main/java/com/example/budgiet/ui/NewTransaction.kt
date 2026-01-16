@@ -42,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -116,66 +115,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
             }
         }
         FormField("Price") {
-            var parseError by remember { mutableStateOf<String?>(null) }
-            val focusManager = LocalFocusManager.current
-            OutlinedTextField(
-                onValueChange = {
-                    selectedPrice = it
-                },
-                value = selectedPrice,
-                modifier = Modifier
-                    // fixme: use clamping than max for width
-                    .widthIn(max = 150.dp)
-                    .testTag("price_input_field")
-                    .onFocusChanged { state ->
-                        /* FIXME: When currency field is added onto price, change "USD" to whatever
-                        *   currency code we are using */
-                        // When we lose focus on this text field, we should parse the price input
-                        // to see if it is invalid (outputting an error doing so) or format the
-                        // price accordingly if valid
-                        if (!state.isFocused) {
-                            val result = parsePrice(selectedPrice, Currency.getInstance("USD"))
-
-                            when (result) {
-                                is Result.Ok -> {
-                                    selectedPrice = result.value
-                                    parseError = null
-                                }
-
-                                is Result.Err -> {
-                                    parseError = result.error.message
-                                }
-                            }
-                        }
-                    },
-                textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
-                keyboardOptions = KeyboardOptions.Default.copy(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                    }
-                ),
-                isError = parseError != null,
-                placeholder = {
-                    Text(
-                        "0",
-                        textAlign = TextAlign.End,
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        color = androidx.compose.ui.graphics.Color(Color.GRAY)
-                    )
-                },
-                supportingText = {
-                    if (parseError != null) {
-                        Text(parseError as String)
-                    }
-                }
-
-                // TODO: Add Icon decoration for the price (like $ USD)
-            )
+            PriceField(initialPrice = selectedPrice, onPriceChange = {selectedPrice = it})
         }
     }
 
@@ -396,6 +336,65 @@ fun LocationPickerDialog(
             }
         }
     }
+}
+
+@Composable
+fun PriceField(modifier: Modifier = Modifier, initialPrice: String, onPriceChange: (String) -> Unit) {
+    var parseError by remember { mutableStateOf<String?>(null) }
+    val focusManager = LocalFocusManager.current
+    OutlinedTextField(
+        onValueChange = onPriceChange,
+        value = initialPrice,
+        modifier = modifier
+            // fixme: use clamping than max for width
+            .widthIn(max = 150.dp)
+            .onFocusChanged { state ->
+                /* FIXME: When currency field is added onto price, change "USD" to whatever
+                *   currency code we are using */
+                // When we lose focus on this text field, we should parse the price input
+                // to see if it is invalid (outputting an error doing so) or format the
+                // price accordingly if valid
+                if (!state.isFocused) {
+                    when (val result = parsePrice(initialPrice, Currency.getInstance("USD"))) {
+                        is Result.Ok -> {
+                            onPriceChange(result.value)
+                            parseError = null
+                        }
+
+                        is Result.Err -> {
+                            parseError = result.error.message
+                        }
+                    }
+                }
+            },
+        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
+        keyboardOptions = KeyboardOptions.Default.copy(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = {
+                focusManager.clearFocus()
+            }
+        ),
+        isError = parseError != null,
+        placeholder = {
+            Text(
+                "0",
+                textAlign = TextAlign.End,
+                modifier = Modifier
+                    .fillMaxWidth(),
+                color = androidx.compose.ui.graphics.Color(Color.GRAY)
+            )
+        },
+        supportingText = {
+            if (parseError != null) {
+                Text(parseError as String)
+            }
+        }
+
+        // TODO: Add Icon decoration for the price (like $ USD)
+    )
 }
 
 @Preview(showBackground = true)

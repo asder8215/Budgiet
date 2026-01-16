@@ -4,6 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.Currency
 
+/**
+ * Transaction Price Field Positive and Negative Tests
+ */
 class PriceFieldTests {
     @Test
     fun validPriceFormatted() {
