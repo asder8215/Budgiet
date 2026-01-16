@@ -1,7 +1,6 @@
 package com.example.budgiet.ui.utils
 
 import android.annotation.SuppressLint
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -170,15 +168,17 @@ class ListItemScope internal constructor(
         modifier: Modifier = Modifier,
         progressIndicator: @Composable () -> Unit = { CircularProgressIndicator() },
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            ListItem(
-                modifier = modifier
-                    .heightIn(min = listScope.itemHeight.value ?: LIST_ITEM_DEFAULT_HEIGHT)
-                    .clip(LIST_ITEM_SHAPE),
-                headlineContent = { }
-            )
-            progressIndicator()
-        }
+        ListItem(
+            modifier = modifier
+                .heightIn(min = listScope.itemHeight.value ?: LIST_ITEM_DEFAULT_HEIGHT)
+                .clip(LIST_ITEM_SHAPE),
+            headlineContent = { Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                progressIndicator()
+            } }
+        )
     }
     /** Represents *bad data* in the [ListColumn].
      *
