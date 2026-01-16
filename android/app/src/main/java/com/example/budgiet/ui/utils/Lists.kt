@@ -350,7 +350,7 @@ fun <T: Any> PagedListColumn(
     itemKey: (T) -> Any,
     itemContent: @Composable ListItemScope.(T) -> Unit,
     loadingContent: @Composable ListItemScope.() -> Unit = { this.LoadingItem() },
-    errorContent: @Composable ListItemScope.(type: String, message: String) -> Unit
+    errorContent: @Composable ListItemScope.(type: String, message: String?) -> Unit
         = { type, message -> this.ErrorItem(type = type, message = message) },
 ) {
     pagerController.bind(pager)
@@ -359,11 +359,12 @@ fun <T: Any> PagedListColumn(
         /** Renders the **LoadingItem**, **ErrorItem**, or **onLoaded** composables depending on the **status**. */
         fun ListColumnScope.statusItems(status: LoadState, onLoaded: (ListColumnScope.() -> Unit)? = null) {
             when (status) {
-                is LoadState.Loading -> item { this.LoadingItem() }
-                is LoadState.Error -> item { this.ErrorItem(
-                    type = status.error.javaClass.name,
-                    message = status.error.message
-                ) }
+                is LoadState.Loading -> item {
+                    loadingContent()
+                }
+                is LoadState.Error -> item {
+                    errorContent(status.error.javaClass.name, status.error.message)
+                }
                 else -> if (onLoaded != null) {
                     onLoaded()
                 }
@@ -377,11 +378,11 @@ fun <T: Any> PagedListColumn(
                 key = items.itemKey { item -> itemKey(item) }
             ) { item ->
                 items[item]?.let { item ->
-                    this.itemContent(item)
+                    itemContent(item)
                 } ?: run {
                     // This will never be null as long as enablePlaceholders = false in the Pager.
                     // Leave it here tho, in case we change it to true and forget about it.
-                    this.LoadingItem()
+                    loadingContent()
                 }
             }
         }

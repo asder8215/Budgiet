@@ -103,8 +103,6 @@ class ListPagerTests {
     fun refreshLoading() {
         val state = TestState(this.rule) { _, _ -> delay(5000); listOf(0, 1, 2, 3) }
 
-        println("children = ${state.listColumn.onChildren().printToString()}")
-
         state.listColumn.onChild()
             .assert(hasTestTag(LOADING_ITEM_TAG))
     }
