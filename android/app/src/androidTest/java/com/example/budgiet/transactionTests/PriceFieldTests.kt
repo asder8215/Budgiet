@@ -1,46 +1,101 @@
 package com.example.budgiet.transactionTests
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.requestFocus
-import com.example.budgiet.MainPage
+import com.example.budgiet.ui.PriceField
 import org.junit.Rule
 import org.junit.Test
 
 class PriceFieldTests {
     @get:Rule
     val composeTestRule = createComposeRule()
-    val priceInputNode = composeTestRule
-        .onNodeWithTag("price_input_field")
+    val priceInputNode
+        get() = composeTestRule
+            .onNodeWithTag("priceInputField")
 
     // This node is used to re-direct focus to see if
     // number formatting is done
-    val dateTextNode = composeTestRule
-        .onNodeWithTag(
-            "DateTextField"
-        )
+    val buttonNode
+        get() = composeTestRule
+            .onNodeWithTag("button")
+
+
+    fun priceContent(selectedPrice: MutableState<String>) {
+        composeTestRule.setContent {
+            val focusManager = LocalFocusManager.current
+            Column {
+                PriceField(
+                    modifier = Modifier.testTag("priceInputField"),
+                    initialPrice = selectedPrice.value,
+                    onPriceChange = { selectedPrice.value = it }
+                )
+                Button(
+                    modifier = Modifier.testTag("button"),
+                    onClick = { focusManager.clearFocus() },
+                    content = {},
+                )
+            }
+        }
+    }
+
+    data class PriceAssertion(
+        val text: String?,
+        val onFocusAssertion: String?,
+        val onUnfocusAssertion: String?,
+        val includeEditableText: Boolean
+    )
+
+    fun priceTestCase(
+        assertions: List<PriceAssertion>,
+    ) {
+
+        assertions.forEach { assertion ->
+
+            if (assertion.text != null) {
+                priceInputNode
+                    .performTextInput(assertion.text)
+            }
+
+            if (assertion.onFocusAssertion != null) {
+                priceInputNode.assertIsFocused()
+                priceInputNode
+                    .assertTextEquals(
+                        assertion.onFocusAssertion,
+                        includeEditableText = assertion.includeEditableText
+                    )
+            }
+
+            if (assertion.onUnfocusAssertion != null) {
+                buttonNode.performClick()
+                priceInputNode.assertIsNotFocused()
+                priceInputNode
+                    .assertTextEquals(
+                        assertion.onUnfocusAssertion,
+                        includeEditableText = assertion.includeEditableText
+                    )
+            }
+
+        }
+
+    }
 
     @Test
     fun showsPlaceHolderValue() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
         // Note: includeEditableText should be marked as false
         // because we're only checking that the placeholder value
@@ -51,249 +106,199 @@ class PriceFieldTests {
 
     @Test
     fun enterWholeInteger() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("100")
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("100")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("100.00")
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "100",
+                    "100",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "100.00",
+                    true
+                )
+            )
+        )
     }
 
     @Test
     fun enterDecimal() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("100.00")
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("100.00")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("100.00")
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "100.00",
+                    "100.00",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "100.00",
+                    true
+                )
+            )
+        )
     }
 
     @Test
     fun enterInvalidCharacter() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("f")
-
-
-        // TODO: This needs a screenshot UI test to see a red outline on the box
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("f")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("Invalid character 'f' used", includeEditableText = false)
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "f",
+                    "f",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "Invalid character 'f' used",
+                    false
+                )
+            )
+        )
     }
 
     @Test
     fun enterHalfValidHalfInvalidCharacters() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("1")
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("1")
-
-        priceInputNode
-            .performTextInput("f")
-
-        priceInputNode.assertIsFocused()
-
-        // TODO: This needs a screenshot UI test to see a red outline on the box
-        priceInputNode
-            .assertTextContains("1f")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("Invalid character 'f' used", includeEditableText = false)
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "1",
+                    "1",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    "f",
+                    "1f",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "Invalid character 'f' used",
+                    false
+                )
+            )
+        )
     }
 
     @Test
     fun enterLeadingUnfractionalZero() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("01")
-
-
-        // TODO: This needs a screenshot UI test to see a red outline on the box
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("01")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("Leading un-fractional 0s are not allowed", includeEditableText = false)
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "01",
+                    "01",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "Leading un-fractional 0s are not allowed",
+                    false
+                )
+            )
+        )
     }
 
     @Test
     fun enterManyDecimals() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("1..0")
-
-
-        // TODO: This needs a screenshot UI test to see a red outline on the box
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("1..0")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("Decimal '.' exists already", includeEditableText = false)
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "1..0",
+                    "1..0",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "Decimal '.' exists already",
+                    false
+                )
+            )
+        )
     }
 
     @Test
     fun enterTooManyDecimalPlaces() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("1.000")
-
-
-        // TODO: This needs a screenshot UI test to see a red outline on the box
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("1.000")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("USD uses up to 2 decimal places", includeEditableText = false)
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "1.000",
+                    "1.000",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "USD uses up to 2 decimal places",
+                    false
+                )
+            )
+        )
     }
 
     @Test
     fun enterInvalidDecimalSymbol() {
-        composeTestRule.setContent {
-            MainPage()
-        }
+        val selectedPrice = mutableStateOf("")
 
-        composeTestRule.onNode(
-            hasContentDescription("New Transaction")
-                    and
-                    hasClickAction()
-        ).performClick()
+        priceContent(selectedPrice)
 
-        priceInputNode
-            .performTextInput("1,00")
-
-
-        // TODO: This needs a screenshot UI test to see a red outline on the box
-
-        priceInputNode.assertIsFocused()
-
-        priceInputNode
-            .assertTextEquals("1,00")
-
-        dateTextNode.performClick()
-
-        priceInputNode.assertIsNotFocused()
-
-        priceInputNode
-            .assertTextEquals("Your locale uses '.' as decimal", includeEditableText = false)
+        priceTestCase(
+            listOf(
+                PriceAssertion(
+                    "1,00",
+                    "1,00",
+                    null,
+                    true
+                ),
+                PriceAssertion(
+                    null,
+                    null,
+                    "Your locale uses '.' as decimal",
+                    false
+                )
+            )
+        )
     }
 }

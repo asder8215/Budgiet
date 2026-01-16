@@ -3,7 +3,6 @@ package com.example.budgiet
 import java.text.DecimalFormatSymbols
 import java.util.Currency
 import java.util.Locale
-import com.example.budgiet.Result
 
 /**
  * Validates correctness of Transaction's price field input and
@@ -18,7 +17,7 @@ fun parsePrice(price: String, currency: Currency): Result<String> {
         return Result.Ok("")
     }
 
-    var prevDigit: Char? = null;
+    var prevDigit: Char? = null
     val priceLen = price.length
     var decimalFound = false
     // how many decimal places are allowed by the currency (i.e. USD uses 2 decimal places,
