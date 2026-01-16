@@ -1,9 +1,11 @@
 package com.example.budgiet.ui.utils
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -30,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -168,7 +171,7 @@ class ListItemScope internal constructor(
         progressIndicator: @Composable () -> Unit = { CircularProgressIndicator() },
     ) {
         Box(contentAlignment = Alignment.Center) {
-            DataItem(
+            ListItem(
                 modifier = modifier
                     .heightIn(min = listScope.itemHeight.value ?: LIST_ITEM_DEFAULT_HEIGHT)
                     .clip(LIST_ITEM_SHAPE),
@@ -184,7 +187,7 @@ class ListItemScope internal constructor(
     @Composable
     fun ErrorItem(modifier: Modifier = Modifier, type: String, message: String? = null) {
         val color = MaterialTheme.colorScheme.error
-        DataItem(
+        ListItem(
             // This item does not need to be resized,
             // but it should also not set the List height because it has an irregular size due to the error message.
             modifier = modifier.clip(this.listScope.itemShape),
@@ -328,7 +331,10 @@ class PagerController internal constructor() {
  * @param pagerController Allows the caller to trigger a *[refresh][PagerController.refresh]* on the [Pager]'s data.
  * @param itemKey A Callback that generates an *unique key* for every **item**. See [LazyListScope.items].
  * @param itemContent The [Composable] that will be called for *each item* in the [Pager]'s data.
- *   The caller *should* use [ListItemScope.DataItem], but it is not required. */
+ *   The caller *should* use [ListItemScope.DataItem], but it is not required.
+ * @param loadingContent The [Composable] that will be called when the list can't show an item yet because it is still loading.
+ * @param errorContent The [Composable] that will be called when the **pager** loads a page that throws an [Exception].
+ *   Takes a **type**, which is the *full class name* of the [Exception], and the exception's [**message**][Throwable.message]. */
 @Composable
 fun <T: Any> PagedListColumn(
     modifier: Modifier = Modifier,
@@ -343,6 +349,9 @@ fun <T: Any> PagedListColumn(
     pagerController: PagerController = remember { PagerController() },
     itemKey: (T) -> Any,
     itemContent: @Composable ListItemScope.(T) -> Unit,
+    loadingContent: @Composable ListItemScope.() -> Unit = { this.LoadingItem() },
+    errorContent: @Composable ListItemScope.(type: String, message: String) -> Unit
+        = { type, message -> this.ErrorItem(type = type, message = message) },
 ) {
     pagerController.bind(pager)
 
