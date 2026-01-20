@@ -31,6 +31,7 @@ const val LOADING_ITEM_TAG = "LoadingItem"
 const val ERROR_ITEM_TAG = "ErrorItem"
 const val PAGE_SIZE = 4
 const val MAX_PAGES = 3
+const val LOAD_TIME = 5000L
 const val ERROR_MESSAGE = "loading page exception"
 
 class TestState(
@@ -76,13 +77,7 @@ class ListPagerTests {
     @get:Rule
     val rule = createComposeRule()
 
-    // TODO: test that loading indicator item shows up when loading takes long (do 5 secs).
-    //       The indicator should show up when the search is initiated, when scrolling down, and scrolling up
-
-    // TODO: test that items are unloaded
-
-    // TODO: test color of error item
-
+    /** Tests that pages are **unloaded** when the Pager appends enough items to overflow MAX_PAGES. */
     @Test
     fun unloadPages() {
         val state = TestState(this.rule)
@@ -99,14 +94,21 @@ class ListPagerTests {
         TODO()
     }
 
+    /** Tests that an Item with a Loading Indicator is shown when
+     * the Pager first starts loading but the page loader is **blocking**. */
     @Test
     fun refreshLoading() {
-        val state = TestState(this.rule) { _, _ -> delay(5000); listOf(0, 1, 2, 3) }
+        val state = TestState(this.rule) { start, length ->
+            delay(LOAD_TIME);
+            List(length.toInt()) { i -> start.toInt() + i }
+        }
 
         state.listColumn.onChild()
             .assert(hasTestTag(LOADING_ITEM_TAG))
     }
 
+    /** Test that an Error item is shown when
+     * the Pager first starts loading but the page loader throws an **Exception**. */
     @Test
     fun refreshError() {
         val state = TestState(this.rule) { _, _ -> throw Exception(ERROR_MESSAGE) }
@@ -115,18 +117,24 @@ class ListPagerTests {
             .assertErrorItem()
     }
 
+    /** Tests that an Item with a Loading Indicator is shown when
+     * the Pager tries to **prepend** items to the list but the page loader is **blocking**. */
     @Test
     fun prependLoading() {
         TODO()
     }
 
+    /** Tests that an Error Item is shown when
+     * the Pager tries to **prepend** items to the list but the page loader throws an **Exception**. */
     @Test
     fun prependError() {
         var firstPageUnloaded = false
         val state = TestState(this.rule) { start, length ->
             val start = start.toInt()
             val length = length.toInt()
-            println("load page ${1 + PAGE_SIZE / start} { start = $start, length = $length }")
+
+            println("load page ${1 + start / PAGE_SIZE} { start = $start, length = $length }")
+
             // The first page gets unloaded when the page that passes the MAX_PAGES count gets loaded.
             if (start >= PAGE_SIZE * MAX_PAGES) {
                 firstPageUnloaded = true
@@ -138,13 +146,14 @@ class ListPagerTests {
             }
         }
 
+        println("children = ${state.listColumn.onChildren().printToString()}")
+
         // Scroll to page after max page.
-        for (i in PAGE_SIZE..(PAGE_SIZE * MAX_PAGES + 1)) {
+        for (i in PAGE_SIZE..(PAGE_SIZE * MAX_PAGES)) {
             state.listColumn.performScrollToIndex(i)
             println("Scrolled to $i")
         }
 
-        println("children = ${state.listColumn.onChildren().printToString()}")
 
         // Check that all initially loaded items are good data.
         state.listColumn.onChildren()
@@ -158,11 +167,36 @@ class ListPagerTests {
             .assertErrorItem()
     }
 
+    /** Tests that an Item with a Loading Indicator is shown when
+     * the Pager tries to **append** items to the list but the page loader is **blocking**. */
     @Test
     fun appendLoading() {
-        TODO()
+        val state = TestState(this.rule) { start, length ->
+            val start = start.toInt()
+            val length = length.toInt()
+            when {
+                // Must block on 3rd page because Pager will ALWAYS initial load 2 pages,
+                // without regarding the initialLoadSize the config.
+                start >= PAGE_SIZE * 2 -> delay(LOAD_TIME)
+            }
+
+            List(length) { i -> start + i }
+        }
+
+        // Check that all initially loaded items are good data.
+        state.listColumn.onChildren()
+            .assertAll(hasTestTag(ITEM_TAG))
+
+        // Scroll to loading item
+        state.listColumn.performScrollToIndex(PAGE_SIZE)
+        state.listColumn.performScrollToIndex(PAGE_SIZE * 2)
+        state.listColumn.onChildren()
+            .onLast()
+            .assert(hasTestTag(LOADING_ITEM_TAG))
     }
 
+    /** Tests that an Error Item is shown when
+     * the Pager tries to **append** items to the list but the page loader throws an **Exception**. */
     @Test
     fun appendError() {
         val state = TestState(this.rule) { start, length ->
@@ -171,9 +205,10 @@ class ListPagerTests {
             when {
                 // Must throw error on 3rd page because Pager will ALWAYS initial load 2 pages,
                 // without regarding the initialLoadSize the config.
-                start < PAGE_SIZE * 2 -> List(length) { i -> start + i }
-                else -> throw Exception(ERROR_MESSAGE)
+                start >= PAGE_SIZE * 2 -> throw Exception(ERROR_MESSAGE)
             }
+
+            List(length) { i -> start + i }
         }
 
         // Check that all initially loaded items are good data.
