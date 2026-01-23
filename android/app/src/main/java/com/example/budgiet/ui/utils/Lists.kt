@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -40,7 +41,7 @@ import androidx.paging.Pager
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
-import com.example.budgiet.PagingKey
+import com.example.budgiet.ListPager
 import com.example.budgiet.rememberListPager
 
 /** When a [LazyColumn]'s [ListItem]'s **height** can't be determined because it has no content,
@@ -167,15 +168,17 @@ class ListItemScope internal constructor(
         modifier: Modifier = Modifier,
         progressIndicator: @Composable () -> Unit = { CircularProgressIndicator() },
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            DataItem(
-                modifier = modifier
-                    .heightIn(min = listScope.itemHeight.value ?: LIST_ITEM_DEFAULT_HEIGHT)
-                    .clip(LIST_ITEM_SHAPE),
-                headlineContent = { }
-            )
-            progressIndicator()
-        }
+        ListItem(
+            modifier = modifier
+                .heightIn(min = listScope.itemHeight.value ?: LIST_ITEM_DEFAULT_HEIGHT)
+                .clip(LIST_ITEM_SHAPE),
+            headlineContent = { Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                progressIndicator()
+            } }
+        )
     }
     /** Represents *bad data* in the [ListColumn].
      *
@@ -184,7 +187,7 @@ class ListItemScope internal constructor(
     @Composable
     fun ErrorItem(modifier: Modifier = Modifier, type: String, message: String? = null) {
         val color = MaterialTheme.colorScheme.error
-        DataItem(
+        ListItem(
             // This item does not need to be resized,
             // but it should also not set the List height because it has an irregular size due to the error message.
             modifier = modifier.clip(this.listScope.itemShape),
@@ -263,12 +266,12 @@ fun ListColumn(
  * Before the controller is *bound* none of its methods will have any effect and will return *default values*. */
 class PagerController internal constructor() {
     private lateinit var _items: LazyPagingItems<*>
-    private lateinit var pager: Pager<PagingKey, *>
+    private lateinit var pager: ListPager<*>
 
     /** Initializes the controller to operate on the provided [Pager] **items**. */
     @SuppressLint("ComposableNaming")
     @Composable
-    internal fun <T: Any> bind(pager: Pager<PagingKey, T>) {
+    internal fun <T: Any> bind(pager: ListPager<T>) {
         if (itemsNullable == null) {
             this.pager = pager
             this._items = pager.flow.collectAsLazyPagingItems()
@@ -279,7 +282,7 @@ class PagerController internal constructor() {
      *
      * @throws IllegalArgumentException if the caller does not use the same pager that this controller was bound to.
      * @throws UninitializedPropertyAccessException if this controller has not been bound to a pager yet. */
-    internal fun <T: Any> items(pager: Pager<PagingKey, T>): LazyPagingItems<T> {
+    internal fun <T: Any> items(pager: ListPager<T>): LazyPagingItems<T> {
         if (this.pager !== pager) {
             throw IllegalArgumentException("Used a different pager than the one that this controller was bound to")
         }
@@ -301,15 +304,15 @@ class PagerController internal constructor() {
      * Wrapper for [LazyPagingItems.refresh]. */
     fun refresh() = this.itemsNullable?.refresh()
 
-    /** Check if the [Pager] is still *loading* items that are being **prepended** to the list. */
-    val prependLoading: Boolean
-        get() = this.itemsNullable?.let { it.loadState.prepend == LoadState.Loading } ?: false
-    /** Check if the [Pager] is still *loading* items after a [refresh]. */
-    val refreshLoading: Boolean
-        get() = this.itemsNullable?.let { it.loadState.refresh == LoadState.Loading } ?: false
-    /** Check if the [Pager] is still *loading* items that are being **appended** to the list. */
-    val appendLoading: Boolean
-        get() = this.itemsNullable?.let { it.loadState.append == LoadState.Loading } ?: false
+    /** Check the **status** of the *Page* of items that are being **prepended** to the list. */
+    val prependStatus: LoadState
+        get() = this.itemsNullable?.loadState?.prepend ?: LoadState.NotLoading(false)
+    /** Check the **status** of *Pages* after a [refresh]. */
+    val refreshStatus: LoadState
+        get() = this.itemsNullable?.loadState?.refresh ?: LoadState.NotLoading(false)
+    /** Check the **status** of the *Page* of items that are being **appended** to the list. */
+    val appendStatus: LoadState
+        get() = this.itemsNullable?.loadState?.append ?: LoadState.NotLoading(false)
 }
 
 /** A [ListColumn] that uses a [Pager] to load items.
@@ -328,7 +331,10 @@ class PagerController internal constructor() {
  * @param pagerController Allows the caller to trigger a *[refresh][PagerController.refresh]* on the [Pager]'s data.
  * @param itemKey A Callback that generates an *unique key* for every **item**. See [LazyListScope.items].
  * @param itemContent The [Composable] that will be called for *each item* in the [Pager]'s data.
- *   The caller *should* use [ListItemScope.DataItem], but it is not required. */
+ *   The caller *should* use [ListItemScope.DataItem], but it is not required.
+ * @param loadingContent The [Composable] that will be called when the list can't show an item yet because it is still loading.
+ * @param errorContent The [Composable] that will be called when the **pager** loads a page that throws an [Exception].
+ *   Takes a **type**, which is the *full class name* of the [Exception], and the exception's [**message**][Throwable.message]. */
 @Composable
 fun <T: Any> PagedListColumn(
     modifier: Modifier = Modifier,
@@ -339,38 +345,47 @@ fun <T: Any> PagedListColumn(
     shape: Shape = LIST_SHAPE,
     itemShape: Shape = LIST_ITEM_SHAPE,
     dividerThickness: Dp = DividerDefaults.Thickness,
-    pager: Pager<PagingKey, T>,
+    pager: ListPager<T>,
     pagerController: PagerController = remember { PagerController() },
     itemKey: (T) -> Any,
     itemContent: @Composable ListItemScope.(T) -> Unit,
+    loadingContent: @Composable ListItemScope.() -> Unit = { this.LoadingItem() },
+    errorContent: @Composable ListItemScope.(type: String, message: String?) -> Unit
+        = { type, message -> this.ErrorItem(type = type, message = message) },
 ) {
     pagerController.bind(pager)
 
     ListColumn(modifier, state, contentPadding, reverseLayout, visibleItems, shape, itemShape, dividerThickness) {
-        if (pagerController.prependLoading) {
-            item { this.LoadingItem() }
+        /** Renders the **LoadingItem**, **ErrorItem**, or **onLoaded** composables depending on the **status**. */
+        fun ListColumnScope.statusItems(status: LoadState, onLoaded: (ListColumnScope.() -> Unit)? = null) {
+            when (status) {
+                is LoadState.Loading -> item {
+                    loadingContent()
+                }
+                is LoadState.Error -> item {
+                    errorContent(status.error.javaClass.name, status.error.message)
+                }
+                else -> if (onLoaded != null) {
+                    onLoaded()
+                }
+            }
         }
 
-        if (pagerController.refreshLoading) {
-            item { this.LoadingItem() }
-        } else {
-            // TODO: Make ListPagingSource expose items as Result so we can handle when a page throws an Exception.
+        statusItems(pagerController.prependStatus)
+        statusItems(pagerController.refreshStatus) {
             val items = pagerController.items(pager)
             this.items(items.itemCount,
                 key = items.itemKey { item -> itemKey(item) }
             ) { item ->
                 items[item]?.let { item ->
-                    this.itemContent(item)
+                    itemContent(item)
                 } ?: run {
                     // This will never be null as long as enablePlaceholders = false in the Pager.
                     // Leave it here tho, in case we change it to true and forget about it.
-                    this.LoadingItem()
+                    loadingContent()
                 }
             }
         }
-
-        if (pagerController.appendLoading) {
-            item { this.LoadingItem() }
-        }
+        statusItems(pagerController.appendStatus)
     }
 }
