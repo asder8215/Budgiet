@@ -8,7 +8,6 @@ import junit.framework.AssertionFailedError
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
-import kotlin.Result
 import kotlin.math.min
 
 class PagingUnitTests {

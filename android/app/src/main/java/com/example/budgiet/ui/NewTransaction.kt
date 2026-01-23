@@ -44,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -58,8 +57,9 @@ import com.example.budgiet.Location
 import com.example.budgiet.getLocationsSearchPage
 import com.example.budgiet.getRecentLocations
 import com.example.budgiet.parsePrice
-import com.example.budgiet.rememberListPager
 import com.example.budgiet.rememberWork
+import com.example.budgiet.Result
+import com.example.budgiet.rememberQueryListPager
 import com.example.budgiet.ui.theme.BudgietTheme
 import com.example.budgiet.ui.utils.ListColumn
 import com.example.budgiet.ui.utils.ListItemScope
@@ -80,7 +80,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
     var selectedPrice by remember { mutableStateOf("") }
 
     Column(
-        modifier = modifier.testTag("Transaction Column"),
+        modifier = modifier,
     ) {
         FormField("Date") {
             OutlinedTextField(
@@ -94,7 +94,6 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                         }
                     }
                 },
-                modifier = Modifier.testTag("DateTextField")
             )
         }
         FormField("Location") {
@@ -125,19 +124,17 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDatePicker = false
-                        // FIXME: DatePicker is providing incorrect dates
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = Date(millis)
-                        }
+            confirmButton = { TextButton(
+                onClick = {
+                    showDatePicker = false
+                    // FIXME: DatePicker is providing incorrect dates
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Date(millis)
                     }
-                ) {
-                    Text("Ok")
                 }
-            },
+            ) {
+                Text("Ok")
+            } },
             dismissButton = {
                 TextButton(
                     onClick = { showDatePicker = false }
@@ -238,10 +235,8 @@ fun LocationPickerDialog(
                 // Show search results if the SearchBar has a query,
                 // otherwise show recent locations.
                 if (searchState.text.isEmpty()) {
-                    Text(
-                        "Recent",
-                        modifier = Modifier
-                            .fillMaxWidth()
+                    Text("Recent",
+                        modifier = Modifier.fillMaxWidth()
                             .padding(start = dialogPadding)
                     )
                 } else {
@@ -271,12 +266,7 @@ fun LocationPickerDialog(
                             // Show the item as an Error if the task threw an Exception
                             is Result.Err -> {
                                 val error = (recentItems as Result.Err).error
-                                item {
-                                    this.ErrorItem(
-                                        type = error.javaClass.name,
-                                        message = error.localizedMessage
-                                    )
-                                }
+                                item { this.ErrorItem(type = error.javaClass.name, message = error.localizedMessage) }
                             }
                             // Show loading indicator while the items are being obtained
                             null -> item { this.LoadingItem() }
