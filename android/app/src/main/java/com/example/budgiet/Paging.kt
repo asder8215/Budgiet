@@ -7,6 +7,8 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 // NOTE: key is NOT a Location ID, but an index in the pagination
 typealias PagingKey = UInt
@@ -91,6 +93,20 @@ fun <T: Any> rememberListPager(
     Pager(config) { ListPagingSource.withoutQuery(getPage) }
 }
 
+/** Same as [rememberListPager], but allows passing a custom executor to run [getPage] on.
+ * The executor should be [Executors.newSingleThreadExecutor].
+ *
+ * This was specifically made to be called ***ONLY*** from semantic tests. */
+@UsableInTestsOnly
+@Composable
+internal fun <T: Any> rememberTestListPager(
+    getPage: PageGetter<T>,
+    config: PagingConfig,
+    executor: Executor,
+): ListPager<T> = remember {
+    Pager(config) { ListPagingSource.forTest(getPage, executor) }
+}
+
 /** A generic [PagingSource] over a list of items.
  *
  * This class was mainly designed to be used for *text searches* that query a *database*,
@@ -108,7 +124,12 @@ fun <T: Any> rememberListPager(
  *
  *     Ideally, only a reference to the **query** text should be passed in here,
  *     but I don't think this is possible, so the whole *state* must be passed in. */
-class ListPagingSource<T: Any> private constructor(private val type: ListPagingSourceType<T>) : PagingSource<PagingKey, T>() {
+class ListPagingSource<T: Any> private constructor(
+    /** Contains the **getPage** callback. */
+    private val type: ListPagingSourceType<T>,
+    /** An optional custom work [Executor] that runs **getPage**. Only set in tests. */
+    private val executor: Executor? = null,
+) : PagingSource<PagingKey, T>() {
     companion object {
         /** This constructor is for a [PagingSource] that uses a **query** to get pages.
          *
@@ -130,6 +151,16 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
              * See [PageGetter]. */
             getPage: PageGetter<T>,
         ) = ListPagingSource(ListPagingSourceType.NoQuery(getPage))
+
+        /** Same as [ListPagingSource.withoutQuery], but allows passing a custom executor to run [getPage] on.
+         * The executor should be [Executors.newSingleThreadExecutor].
+         *
+         * This was specifically made to be called ***ONLY*** from semantic tests. */
+        @UsableInTestsOnly
+        internal fun <T: Any> forTest(
+            getPage: PageGetter<T>,
+            executor: Executor,
+        ) = ListPagingSource(ListPagingSourceType.NoQuery(getPage), executor)
     }
 
     /** Return `null` if the **key** is out of bounds.
@@ -157,13 +188,19 @@ class ListPagingSource<T: Any> private constructor(private val type: ListPagingS
             return getEmptyPage()
         }
 
-        val result = when (this.type) {
-            is ListPagingSourceType.NoQuery -> runWork {
+        val task = when (this.type) {
+            is ListPagingSourceType.NoQuery -> suspend {
                 this.type.getPage(start, params.loadSize.toUInt())
             }
-            is ListPagingSourceType.WithQuery -> runWork {
+            is ListPagingSourceType.WithQuery -> suspend {
                 this.type.getPage(this.type.queryState.text, start, params.loadSize.toUInt())
             }
+        }
+        val result = if (this.executor == null) {
+            runWork(task = task)
+        } else {
+            // This branch only runs on tests!
+            runWork(this.executor, task)
         }
         val data = when (result) {
             // Ignore items that don't fit on this page. They should be loaded on the next page

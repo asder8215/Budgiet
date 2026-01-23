@@ -13,17 +13,16 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onChildren
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollToIndex
-import androidx.compose.ui.test.printToString
 import androidx.paging.PagingConfig
 import com.example.budgiet.ui.utils.PagedListColumn
 import com.example.budgiet.ui.utils.PagerController
 import kotlinx.coroutines.delay
 import org.junit.Rule
 import org.junit.Test
+import java.util.concurrent.Executors
 
 const val LIST_TAG = "PagedList"
 const val ITEM_TAG = "DataItem"
@@ -34,11 +33,13 @@ const val MAX_PAGES = 3
 const val LOAD_TIME = 5000L
 const val ERROR_MESSAGE = "loading page exception"
 
+@OptIn(UsableInTestsOnly::class)
 class TestState(
     private val rule: ComposeContentTestRule,
     private val getPage: PageGetter<Int> = { start, length -> List(length.toInt()) { i -> start.toInt() + i } },
 ) {
     val pagerController = PagerController()
+    private val executor = Executors.newSingleThreadExecutor()
 
     val listColumn
         get() = rule.onNodeWithTag(LIST_TAG)
@@ -47,8 +48,9 @@ class TestState(
         rule.setContent {
             PagedListColumn(
                 modifier = Modifier.testTag(LIST_TAG),
-                pager = rememberListPager(
-                    getPage = getPage,
+                pager = rememberTestListPager(
+                    getPage = this.getPage,
+                    executor = this.executor,
                     config = PagingConfig(
                         pageSize = PAGE_SIZE,
                         initialLoadSize = PAGE_SIZE,

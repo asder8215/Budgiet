@@ -12,7 +12,13 @@ import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+
+@SuppressLint("ExperimentalAnnotationRetention")
+@RequiresOptIn(message = "This part of the API is visible only for testing.")
+internal annotation class UsableInTestsOnly
+
 
 /** An [Executor][java.util.concurrent.Executor] containing the *single thread* that will run *blocking tasks*.
  *
@@ -81,18 +87,20 @@ sealed class Result<out T> {
  * While the task waits to be executed (and while it is being executed),
  * the *UI* thread can continue the rendering process without having to wait for work to be done.
  *
+ * Optionally, the caller can pass a custom [Executor] to run the work in instead of the default **worker thread**.
+ *
  * After the **task** is finished, the returned [MutableState] is updated to contain a [Result]:
  * either the *success* value produced by the **task** Callback,
  * or an *error value* if the **task** threw an [Exception] ([Throwable]).
  * Throwing an [Exception] in a [Composable] is not ideal since it will crash the program if not caught,
  * so this function will automatically catch [Exception]s and put it in the [Result] instead.
  *
- * > Note: If this function detects that it is being called from the **worker thread**,
+ * > Note: If this function detects that it is being called from the *default* **worker thread**,
  * > it will just run the *task* in the same thread without first pushing it to the Executor and waiting its turn.
  * > This optimizes the order of running *tasks* in case the caller calls [rememberWork] without knowing it is in the worker thread,
  * > Although this should be extremely rare. */
 @Composable
-fun <T> rememberWork(task: suspend () -> T): MutableState<Result<T>?> = remember {
+fun <T> rememberWork(executor: Executor = WORKER_THREAD, task: suspend () -> T): MutableState<Result<T>?> = remember {
     // Run on the current thread if it is the worker thread
     if (isWorkerThread()) {
         runBlocking {
@@ -106,8 +114,8 @@ fun <T> rememberWork(task: suspend () -> T): MutableState<Result<T>?> = remember
     } else {
         val state = mutableStateOf<Result<T>?>(null)
 
-        WORKER_THREAD.execute {
-            if (WORKER_THREAD_ID == null) {
+        executor.execute {
+            if (executor == WORKER_THREAD && WORKER_THREAD_ID == null) {
                 WORKER_THREAD_ID = Thread.currentThread().id
             }
 
@@ -132,11 +140,13 @@ fun <T> rememberWork(task: suspend () -> T): MutableState<Result<T>?> = remember
  * Unlike [rememberWork], this function will *rethrow* any [Exception]s thrown by the **task**.
  * It is up to the caller to *catch* those [Exception]s.
  *
- * > Note: If this function detects that it is being called from the **worker thread**,
+ * Optionally, the caller can pass a custom [Executor] to run the work in instead of the default **worker thread**.
+ *
+ * > Note: If this function detects that it is being called from the *default* **worker thread**,
  * > it will just run the *task* in the same thread without first pushing it to the Executor and waiting its turn.
  * > This optimizes the order of running *tasks* in case the caller calls [runWork] without knowing it is in the worker thread,
  * > Although this should be extremely rare. */
-suspend fun <T> runWork(task: suspend () -> T): Result<T> {
+suspend fun <T> runWork(executor: Executor = WORKER_THREAD, task: suspend () -> T): Result<T> {
     return if (isWorkerThread()) {
         // Don't allow an exception to terminate the worker thread; gotta catch em all.
         try {
@@ -147,8 +157,8 @@ suspend fun <T> runWork(task: suspend () -> T): Result<T> {
     } else {
         val channel = Channel<Result<T>>(capacity = 1)
 
-        WORKER_THREAD.execute {
-            if (WORKER_THREAD_ID == null) {
+        executor.execute {
+            if (executor == WORKER_THREAD && WORKER_THREAD_ID == null) {
                 WORKER_THREAD_ID = Thread.currentThread().id
             }
 
