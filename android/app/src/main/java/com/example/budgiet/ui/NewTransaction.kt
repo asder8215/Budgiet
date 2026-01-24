@@ -3,7 +3,6 @@ package com.example.budgiet.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -18,14 +17,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -71,6 +72,8 @@ import com.example.budgiet.ui.utils.PagedListColumn
 import com.example.budgiet.ui.utils.PagerController
 import com.example.budgiet.ui.utils.PlainSearchBar
 import com.example.budgiet.ui.utils.PlainToolTipBox
+import com.example.budgiet.ui.utils.FilledTextIconButton
+import com.example.budgiet.ui.utils.TextIconButton
 import java.util.Currency
 import kotlin.math.ceil
 
@@ -157,6 +160,19 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                 },
             )
         }
+
+        FormField(null, horizontalArrangement = Arrangement.SpaceBetween) {
+            TextIconButton(
+                onClick = { TODO() },
+                icon = { Icon(Icons.Filled.Clear, "Cancel") },
+                text = { Text("Cancel") }
+            )
+            FilledTextIconButton(
+                onClick = { TODO() },
+                icon = { Icon(Icons.Filled.Check, "Submit") },
+                text = { Text("Submit") },
+            )
+        }
     }
 
     if (showDatePicker) {
@@ -210,25 +226,29 @@ enum class LabelPosition {
 
 @Composable
 fun FormField(
-    label: String,
+    label: String?,
     modifier: Modifier = Modifier,
     labelPosition: LabelPosition = LabelPosition.BesidesContent,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.End,
+    verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
     content: @Composable (RowScope.() -> Unit)
 ) {
+    val headlineRow = @Composable {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = horizontalArrangement,
+            verticalAlignment = verticalAlignment,
+            content = content,
+        )
+    }
+
     when (labelPosition) {
         LabelPosition.BesidesContent -> ListItem(
             modifier = modifier,
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             // The ListItem places leadingContent to the left of headlineContent, and adds spacing.
-            leadingContent = { Text(label) },
-            headlineContent = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = content,
-                )
-            }
+            leadingContent = label?.let { { Text(label) } },
+            headlineContent = headlineRow,
         )
         LabelPosition.AboveContent -> ListItem(
             modifier = modifier,
@@ -239,17 +259,14 @@ fun FormField(
                     horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.Top,
                 ) {
-                    Text(
-                        label,
-                        color = ListItemDefaults.colors().leadingIconColor,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically,
-                        content = content,
-                    )
+                    if (label != null) {
+                        Text(
+                            label,
+                            color = ListItemDefaults.colors().leadingIconColor,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    headlineRow()
                 }
             }
         )
@@ -263,8 +280,6 @@ fun LocationPickerDialog(
     onSubmit: (Location) -> Unit,
 ) {
     val dialogPadding = 8.dp
-    val textIconButtonPadding = 12.dp
-    val textIconButtonSpacing = 4.dp
     val searchColumnSize = 3.5f
     // Page size should have enough items to scroll down several times the number of items showed.
     val searchPageSize = ceil(searchColumnSize).toInt() * 3
@@ -369,14 +384,11 @@ fun LocationPickerDialog(
                     }
 
                     PlainToolTipBox("Add new location") {
-                        Button(
+                        FilledTextIconButton(
                             onClick = { TODO() },
-                            contentPadding = PaddingValues(horizontal = textIconButtonPadding)
-                        ) {
-                            Icon(Icons.Filled.Add, "New Location")
-                            Spacer(Modifier.width(textIconButtonSpacing))
-                            Text("New")
-                        }
+                            icon = { Icon(Icons.Filled.Add, "New Location") },
+                            text = { Text("New") },
+                        )
                     }
                 }
             }
