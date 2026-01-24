@@ -158,39 +158,60 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
 
 }
 
+/** Dictates how the *[FormField]*'s **label/title** is positioned in the element.
+ *
+ * Whether the main content is **small** and the label should appear [Beside][LabelPosition.BesidesContent] (to the left of) the content,
+ * or the main content is **large** and the label should appear directly [Above][LabelPosition.AboveContent] the content. */
+enum class LabelPosition {
+    AboveContent, BesidesContent,
+}
+
 @Composable
 fun FormField(
     label: String,
     modifier: Modifier = Modifier,
+    labelPosition: LabelPosition = LabelPosition.BesidesContent,
     content: @Composable (RowScope.() -> Unit)
 ) {
-    ListItem(
-        modifier = modifier,
-        leadingContent = { Text(label) },
-        headlineContent = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-                content = content,
-            )
-        }
-    )
-//    Row(
-//        modifier = modifier
-//            .fillMaxWidth()
-//            .padding(horizontal = 6.dp, vertical = 2.dp),
-//        horizontalArrangement = Arrangement.SpaceBetween,
-//        verticalAlignment = Alignment.CenterVertically,
-//    ) {
-//        Text(label)
-//        Row(
-//            modifier = Modifier.fillMaxWidth(),
-//            horizontalArrangement = Arrangement.End,
-//            verticalAlignment = Alignment.CenterVertically,
-//            content = content,
-//        )
-//    }
+    when (labelPosition) {
+        LabelPosition.BesidesContent -> ListItem(
+            modifier = modifier,
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            // The ListItem places leadingContent to the left of headlineContent, and adds spacing.
+            leadingContent = { Text(label) },
+            headlineContent = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = content,
+                )
+            }
+        )
+        LabelPosition.AboveContent -> ListItem(
+            modifier = modifier,
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.Top,
+                ) {
+                    Text(
+                        label,
+                        color = ListItemDefaults.colors().leadingIconColor,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically,
+                        content = content,
+                    )
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -367,7 +388,7 @@ fun PriceField(modifier: Modifier = Modifier, initialPrice: String, onPriceChang
                 textAlign = TextAlign.End,
                 modifier = Modifier
                     .fillMaxWidth(),
-                color = androidx.compose.ui.graphics.Color(Color.GRAY)
+                color = MaterialTheme.colorScheme.outline,
             )
         },
         supportingText = {
