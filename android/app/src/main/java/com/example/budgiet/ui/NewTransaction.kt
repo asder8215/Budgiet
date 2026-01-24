@@ -1,6 +1,5 @@
 package com.example.budgiet.ui
 
-import android.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -29,7 +29,9 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -43,23 +45,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.paging.PagingConfig
 import com.example.budgiet.Date
 import com.example.budgiet.Location
+import com.example.budgiet.Result
 import com.example.budgiet.getLocationsSearchPage
 import com.example.budgiet.getRecentLocations
 import com.example.budgiet.parsePrice
-import com.example.budgiet.rememberWork
-import com.example.budgiet.Result
 import com.example.budgiet.rememberQueryListPager
+import com.example.budgiet.rememberWork
 import com.example.budgiet.ui.theme.BudgietTheme
 import com.example.budgiet.ui.utils.ListColumn
 import com.example.budgiet.ui.utils.ListItemScope
@@ -70,6 +74,11 @@ import com.example.budgiet.ui.utils.PlainToolTipBox
 import java.util.Currency
 import kotlin.math.ceil
 
+/** The maximum number of characters (graphemes) allowed in the Description field. */
+const val DESCRIPTION_MAX_LENGTH = 255
+val DESCRIPTION_FIELD_MIN_HEIGHT = 125.dp
+val DESCRIPTION_FIELD_MAX_HEIGHT = 300.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewTransactionForm(modifier: Modifier = Modifier) {
@@ -78,6 +87,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
     var showLocationPicker by remember { mutableStateOf(false) }
     var selectedLocation by remember { mutableStateOf<Location?>(null) }
     var selectedPrice by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier,
@@ -114,6 +124,38 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
         }
         FormField("Price") {
             PriceField(initialPrice = selectedPrice, onPriceChange = {selectedPrice = it})
+        }
+        FormField("Description", labelPosition = LabelPosition.AboveContent) {
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth()
+                    .heightIn(min = DESCRIPTION_FIELD_MIN_HEIGHT, max = DESCRIPTION_FIELD_MAX_HEIGHT),
+                value = description,
+                onValueChange = { description = it },
+                shape = MaterialTheme.shapes.large,
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                    lineHeight = 1.5.em,
+                ),
+                placeholder = { Text(
+                    "Write details about the transaction here...",
+                    color = MaterialTheme.colorScheme.outline,
+                ) },
+                isError = description.length > DESCRIPTION_MAX_LENGTH,
+                supportingText = {
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        if (description.length > DESCRIPTION_MAX_LENGTH) {
+                            Text("Description is too long!")
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text(
+                            "${description.length}/$DESCRIPTION_MAX_LENGTH",
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                },
+            )
         }
     }
 
