@@ -26,8 +26,6 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -40,7 +38,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,7 +54,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.paging.PagingConfig
 import com.example.budgiet.Date
 import com.example.budgiet.Location
@@ -68,6 +64,9 @@ import com.example.budgiet.parsePrice
 import com.example.budgiet.rememberQueryListPager
 import com.example.budgiet.rememberWork
 import com.example.budgiet.ui.theme.BudgietTheme
+import com.example.budgiet.ui.utils.DIALOG_PROPERTIES
+import com.example.budgiet.ui.utils.DIALOG_SHAPE
+import com.example.budgiet.ui.utils.DatePickerDialog
 import com.example.budgiet.ui.utils.ListColumn
 import com.example.budgiet.ui.utils.ListItemScope
 import com.example.budgiet.ui.utils.PagedListColumn
@@ -144,34 +143,10 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            selectableDates = Date.pastOrPresentDates(),
-        )
-
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = { TextButton(
-                onClick = {
-                    showDatePicker = false
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        selectedDate = Date(millis)
-                    }
-                }
-            ) {
-                Text("Ok")
-            } },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDatePicker = false }
-                ) {
-                    Text("Cancel")
-                }
-            },
-        ) {
-            DatePicker(
-                state = datePickerState,
-            )
-        }
+            onDismiss = { showDatePicker = false },
+            onSubmit = { date -> selectedDate = date },
+        )
     }
 
     if (showLocationPicker) {
@@ -227,14 +202,11 @@ fun LocationPickerDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-            usePlatformDefaultWidth = true,
-        )
+        properties = DIALOG_PROPERTIES,
     ) {
         Card(
-            modifier = modifier.fillMaxWidth() // PRO TIP: doesn't actually fill max width, it has a margin
+            modifier = modifier.fillMaxWidth(), // PRO TIP: doesn't actually fill max width, it has a margin
+            shape = DIALOG_SHAPE,
         ) {
             Column(
                 modifier = Modifier.padding(all = dialogPadding)
