@@ -153,7 +153,6 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
             confirmButton = { TextButton(
                 onClick = {
                     showDatePicker = false
-                    // FIXME: DatePicker is providing incorrect dates
                     datePickerState.selectedDateMillis?.let { millis ->
                         selectedDate = Date(millis)
                     }
