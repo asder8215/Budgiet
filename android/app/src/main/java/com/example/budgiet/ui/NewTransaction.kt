@@ -77,7 +77,8 @@ import com.example.budgiet.ui.utils.TextIconButton
 import java.util.Currency
 import kotlin.math.ceil
 
-/** The maximum number of characters (graphemes) allowed in the Description field. */
+/** The maximum number of characters (graphemes) allowed in the Description field.
+ * This value should not be changed as the database enforces the value. */
 const val DESCRIPTION_MAX_LENGTH = 255
 val DESCRIPTION_FIELD_MIN_HEIGHT = 125.dp
 val DESCRIPTION_FIELD_MAX_HEIGHT = 300.dp
@@ -133,7 +134,10 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth()
                     .heightIn(min = DESCRIPTION_FIELD_MIN_HEIGHT, max = DESCRIPTION_FIELD_MAX_HEIGHT),
                 value = description,
-                onValueChange = { description = it },
+                onValueChange = { newDescription ->
+                    // Implement character limit with a cutoff, instead of not replacing the description value in the first place
+                    description = newDescription.take(DESCRIPTION_MAX_LENGTH)
+                },
                 shape = MaterialTheme.shapes.large,
                 textStyle = LocalTextStyle.current.copy(
                     fontSize = MaterialTheme.typography.bodyMedium.fontSize,
