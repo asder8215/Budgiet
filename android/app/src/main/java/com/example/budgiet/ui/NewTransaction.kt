@@ -26,7 +26,6 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -66,13 +65,13 @@ import com.example.budgiet.parsePrice
 import com.example.budgiet.rememberQueryListPager
 import com.example.budgiet.rememberWork
 import com.example.budgiet.ui.theme.BudgietTheme
+import com.example.budgiet.ui.utils.FilledTextIconButton
 import com.example.budgiet.ui.utils.ListColumn
 import com.example.budgiet.ui.utils.ListItemScope
 import com.example.budgiet.ui.utils.PagedListColumn
 import com.example.budgiet.ui.utils.PagerController
 import com.example.budgiet.ui.utils.PlainSearchBar
 import com.example.budgiet.ui.utils.PlainToolTipBox
-import com.example.budgiet.ui.utils.FilledTextIconButton
 import com.example.budgiet.ui.utils.TextIconButton
 import java.util.Currency
 import kotlin.math.ceil
@@ -130,39 +129,7 @@ fun NewTransactionForm(modifier: Modifier = Modifier) {
             PriceField(initialPrice = selectedPrice, onPriceChange = {selectedPrice = it})
         }
         FormField("Description", labelPosition = LabelPosition.AboveContent) {
-            OutlinedTextField(
-                modifier = Modifier.fillMaxWidth()
-                    .heightIn(min = DESCRIPTION_FIELD_MIN_HEIGHT, max = DESCRIPTION_FIELD_MAX_HEIGHT),
-                value = description,
-                onValueChange = { newDescription ->
-                    // Implement character limit with a cutoff, instead of not replacing the description value in the first place
-                    description = newDescription.take(DESCRIPTION_MAX_LENGTH)
-                },
-                shape = MaterialTheme.shapes.large,
-                textStyle = LocalTextStyle.current.copy(
-                    fontSize = MaterialTheme.typography.bodyMedium.fontSize,
-                    lineHeight = 1.5.em,
-                ),
-                placeholder = { Text(
-                    "Write details about the transaction here...",
-                    color = MaterialTheme.colorScheme.outline,
-                ) },
-                isError = description.length > DESCRIPTION_MAX_LENGTH,
-                supportingText = {
-                    Row(Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        if (description.length > DESCRIPTION_MAX_LENGTH) {
-                            Text("Description is too long!")
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Text(
-                            "${description.length}/$DESCRIPTION_MAX_LENGTH",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-                },
-            )
+            DescriptionField(fieldValue = description) { description = it }
         }
 
         FormField(null, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -456,6 +423,47 @@ fun PriceField(modifier: Modifier = Modifier, initialPrice: String, onPriceChang
         }
 
         // TODO: Add Icon decoration for the price (like $ USD)
+    )
+}
+
+@Composable
+fun DescriptionField(
+    modifier: Modifier = Modifier,
+    fieldValue: String,
+    onValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        modifier = modifier.fillMaxWidth()
+            .heightIn(min = DESCRIPTION_FIELD_MIN_HEIGHT, max = DESCRIPTION_FIELD_MAX_HEIGHT),
+        value = fieldValue,
+        onValueChange = { newDescription ->
+            // Implement character limit with a cutoff, instead of not replacing the description value in the first place
+            onValueChange(newDescription.take(DESCRIPTION_MAX_LENGTH))
+        },
+        shape = MaterialTheme.shapes.large,
+        textStyle = LocalTextStyle.current.copy(
+            fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+            lineHeight = 1.5.em,
+        ),
+        placeholder = { Text(
+            "Write details about the transaction here...",
+            color = MaterialTheme.colorScheme.outline,
+        ) },
+        isError = fieldValue.length > DESCRIPTION_MAX_LENGTH,
+        supportingText = {
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                if (fieldValue.length > DESCRIPTION_MAX_LENGTH) {
+                    Text("Description is too long!")
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    "${fieldValue.length}/$DESCRIPTION_MAX_LENGTH",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        },
     )
 }
 
